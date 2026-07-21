@@ -14,7 +14,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 
 const navItems = [
-    { name: "Live Tracking", icon: <FaPlayCircle />, path: "/" },
+    { name: "Live Tracking", icon: <FaPlayCircle />, path: "/dashboard" },
     { name: "Workers", icon: <FaUserFriends />, path: "/workers" },
     { name: "Incidents", icon: <FaExclamationTriangle />, path: "/incidents" },
     { name: "Compliance", icon: <FaClipboardList />, path: "/compliance" },
@@ -61,6 +61,7 @@ const Workers = () => {
 
             fetchWorkers();
         } else {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLoading(false);
         }
     }, [isAdmin, user]);

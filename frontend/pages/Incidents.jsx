@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -12,8 +13,10 @@ import {
     FaSignOutAlt
 } from "react-icons/fa";
 
+import { useVideo } from "../context/VideoContext";
+
 const navItems = [
-    { name: "Live Tracking", icon: <FaPlayCircle />, path: "/" },
+    { name: "Live Tracking", icon: <FaPlayCircle />, path: "/dashboard" },
     { name: "Workers", icon: <FaUserFriends />, path: "/workers" },
     { name: "Incidents", icon: <FaExclamationTriangle />, path: "/incidents" },
     { name: "Compliance", icon: <FaClipboardList />, path: "/compliance" },
@@ -24,22 +27,7 @@ const navItems = [
 const Incidents = () => {
     const navigate = useNavigate();
     const activeTab = "Incidents";
-    const [incidentsData, setIncidentsData] = useState([]);
-
-    useEffect(() => {
-        const interval = setInterval(async () => {
-            try {
-                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/video/incidents`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setIncidentsData(data.incidents || []);
-                }
-            } catch (e) {
-                console.error("Failed to fetch incidents:", e);
-            }
-        }, 1000);
-        return () => clearInterval(interval);
-    }, []);
+    const { incidentsData } = useVideo();
 
     const handleLogout = () => {
         navigate("/login");

@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
     FaHardHat,
@@ -12,37 +12,28 @@ import {
     FaPlayCircle,
     FaSignOutAlt
 } from "react-icons/fa";
+import { useVideo } from "../context/VideoContext";
 
 function Dashboard() {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState("Live Tracking");
     const [uploading, setUploading] = useState(false);
-    const [videoData, setVideoData] = useState(null);
-    const [statsData, setStatsData] = useState({ workers: 0, compliance_score: 100, total_incidents: 0 });
-    const [incidentsData, setIncidentsData] = useState([]);
+    const { videoData, setVideoData, statsData, incidentsData, imgRef, hiddenContainerRef } = useVideo();
+    const dashboardContainerRef = useRef(null);
 
     useEffect(() => {
-        let interval;
-        if (videoData) {
-            interval = setInterval(async () => {
-                try {
-                    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/video/incidents`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        setStatsData({
-                            workers: data.workers,
-                            compliance_score: data.compliance_score,
-                            total_incidents: data.total_incidents
-                        });
-                        setIncidentsData(data.incidents || []);
-                    }
-                } catch (e) {
-                    console.error("Failed to fetch incidents:", e);
-                }
-            }, 1000);
+        if (dashboardContainerRef.current && imgRef.current) {
+            dashboardContainerRef.current.appendChild(imgRef.current);
+            imgRef.current.style.display = 'block';
+            imgRef.current.className = 'w-full h-full object-contain';
         }
-        return () => clearInterval(interval);
-    }, [videoData]);
+        return () => {
+            if (hiddenContainerRef.current && imgRef.current) {
+                hiddenContainerRef.current.appendChild(imgRef.current);
+                imgRef.current.style.display = 'none';
+            }
+        };
+    }, [videoData, imgRef, hiddenContainerRef]);
 
     const statistics = [
         {
@@ -106,12 +97,12 @@ function Dashboard() {
     };
 
     const navItems = [
-        { name: "Live Tracking", icon: <FaPlayCircle /> },
-        { name: "Workers", icon: <FaUserFriends /> },
-        { name: "Incidents", icon: <FaExclamationTriangle /> },
-        { name: "Compliance", icon: <FaClipboardList /> },
-        { name: "Analytics", icon: <FaChartLine /> },
-        { name: "Reports", icon: <FaFilePdf /> },
+        { name: "Live Tracking", icon: <FaPlayCircle />, path: "/dashboard" },
+        { name: "Workers", icon: <FaUserFriends />, path: "/workers" },
+        { name: "Incidents", icon: <FaExclamationTriangle />, path: "/incidents" },
+        { name: "Compliance", icon: <FaClipboardList />, path: "/compliance" },
+        { name: "Analytics", icon: <FaChartLine />, path: "/analytics" },
+        { name: "Reports", icon: <FaFilePdf />, path: "/reports" },
     ];
 
     return (
@@ -129,9 +120,9 @@ function Dashboard() {
                 <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
                     <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4 mt-2 px-3">Main Menu</div>
                     {navItems.map((item) => (
-                        <button
+                        <Link
                             key={item.name}
-                            onClick={() => setActiveTab(item.name)}
+                            to={item.path}
                             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                                 activeTab === item.name 
                                 ? "bg-[#0066CC] text-white shadow-md shadow-[#0066CC]/20" 
@@ -140,7 +131,7 @@ function Dashboard() {
                         >
                             <span className={activeTab === item.name ? "opacity-100" : "opacity-70"}>{item.icon}</span>
                             {item.name}
-                        </button>
+                        </Link>
                     ))}
                 </nav>
                 
@@ -223,15 +214,7 @@ function Dashboard() {
                                             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_#ef4444]" />
                                             <span className="text-xs text-white font-medium tracking-wide uppercase">AI Live Analysis</span>
                                         </div>
-                                        {/* MJPEG Stream from FastAPI */}
-                                        <img 
-                                            src={videoData.url 
-                                                ? `${import.meta.env.VITE_API_BASE_URL}/video/stream?url=${encodeURIComponent(videoData.url)}&t=${videoData.timestamp}`
-                                                : `${import.meta.env.VITE_API_BASE_URL}/video/stream/${videoData.filename}?t=${videoData.timestamp}`
-                                            } 
-                                            alt="AI Live Tracking Stream"
-                                            className="w-full h-full object-contain"
-                                        />
+                                        <div ref={dashboardContainerRef} className="w-full h-full object-contain" />
                                     </>
                                 ) : (
                                     <div className="text-center p-8">

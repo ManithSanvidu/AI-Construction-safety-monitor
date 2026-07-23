@@ -10,7 +10,8 @@ import {
     FaChartLine,
     FaFilePdf,
     FaPlayCircle,
-    FaSignOutAlt
+    FaSignOutAlt,
+    FaTrash
 } from "react-icons/fa";
 import { useVideo } from "../context/VideoContext";
 
@@ -18,7 +19,7 @@ function Dashboard() {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState("Live Tracking");
     const [uploading, setUploading] = useState(false);
-    const { videoData, setVideoData, statsData, incidentsData, imgRef, hiddenContainerRef } = useVideo();
+    const { videoData, setVideoData, statsData, incidentsData, imgRef, hiddenContainerRef, clearVideo } = useVideo();
     const dashboardContainerRef = useRef(null);
 
     useEffect(() => {
@@ -93,6 +94,7 @@ function Dashboard() {
             alert("Error uploading video: " + error.message);
         } finally {
             setUploading(false);
+            e.target.value = null; // Reset input so the same file can be uploaded again
         }
     };
 
@@ -194,6 +196,14 @@ function Dashboard() {
                                 Play
                             </button>
                         </div>
+                        {videoData && (
+                            <button 
+                                onClick={clearVideo}
+                                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-all shadow-md flex items-center gap-2 active:scale-95"
+                            >
+                                <FaTrash /> Remove Video
+                            </button>
+                        )}
                         <label className="cursor-pointer bg-[#1d1d1f] hover:bg-[#333336] text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-md flex items-center gap-2 active:scale-95">
                             {uploading ? "Uploading..." : <><FaUpload /> Upload Video</>}
                             <input type="file" className="hidden" accept="video/mp4,video/x-m4v,video/*" onChange={handleFileUpload} disabled={uploading} />

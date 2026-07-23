@@ -7,6 +7,8 @@ from fastapi.responses import StreamingResponse
 from ultralytics import YOLO
 import torch
 import threading
+import datetime
+from app.database import db
 
 router = APIRouter(prefix="/api/video", tags=["video"])
 
@@ -164,13 +166,25 @@ async def generate_frames(video_path: str):
             
             # Create unique incidents for the table, capped at some max so it doesn't grow infinitely
             new_incidents = []
+            db_incidents_to_insert = []
             for inc in stats["frame_incidents"]:
+                inc_doc = {
+                    "type": inc["type"],
+                    "location": "Live Video",
+                    "status": inc["status"],
+                    "timestamp": datetime.datetime.utcnow()
+                }
                 new_incidents.append({
                     "id": current_video_stats["total_incidents"] + len(new_incidents) + 1,
                     "type": inc["type"],
                     "location": "Live Video",
                     "status": inc["status"]
                 })
+                db_incidents_to_insert.append(inc_doc)
+                
+            if db_incidents_to_insert:
+                # Insert incidents asynchronously
+                asyncio.create_task(asyncio.to_thread(db.incidents.insert_many, db_incidents_to_insert))
             
             # Simple compliance score calculation
             total_ppe_expected = stats["workers"] * 2
@@ -187,6 +201,17 @@ async def generate_frames(video_path: str):
                 "total_incidents": current_video_stats["total_incidents"] + len(new_incidents),
                 "compliance_score": compliance
             }
+            
+            # Save metrics snapshot periodically (e.g. 1 in ~50 frames)
+            if getattr(generate_frames, "frame_count", 0) % 50 == 0:
+                asyncio.create_task(asyncio.to_thread(db.metrics.insert_one, {
+                    "workers": stats["workers"],
+                    "helmets": stats["helmets"],
+                    "vests": stats["vests"],
+                    "compliance_score": compliance,
+                    "timestamp": datetime.datetime.utcnow()
+                }))
+            generate_frames.frame_count = getattr(generate_frames, "frame_count", 0) + 1
                 
             frame_bytes = buffer.tobytes()
             

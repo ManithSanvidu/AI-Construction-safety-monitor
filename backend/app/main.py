@@ -9,7 +9,7 @@ if BACKEND_DIR not in sys.path:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import API_TITLE, API_VERSION
-from app.routers import auth, video
+from app.routers import auth, video, reports
 
 app = FastAPI(title=API_TITLE, version=API_VERSION)
 
@@ -24,6 +24,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(video.router)
+app.include_router(reports.router)
 
 @app.get("/")
 def read_root():

@@ -8,12 +8,16 @@ import Analytics from "./pages/Analytics";
 import Reports from "./pages/Reports";
 import Incidents from "./pages/Incidents";
 import Workers from "./pages/Workers";
+import Compliance from "./pages/Compliance";
 import NotFound from "./pages/NotFound";
+import Stocks from "./pages/Stocks"
 
 import ProtectedRoute from "./components/ProtectedRoute";
+import { VideoProvider } from "./context/VideoContext";
 
 function App() {
     return (
+        <VideoProvider>
         <Routes>
 
             {/* Public Route */}
@@ -68,6 +72,15 @@ function App() {
             />
 
             <Route
+                path="/compliance"
+                element={
+                    <ProtectedRoute>
+                        <Compliance />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
                 path="/workers"
                 element={
                     <ProtectedRoute>
@@ -75,6 +88,7 @@ function App() {
                     </ProtectedRoute>
                 }
             />
+            <Route path="/stocks" element={<Stocks />} />
 
             {/* 404 page */}
             <Route path="/404" element={<NotFound />} />
@@ -83,6 +97,7 @@ function App() {
             <Route path="*" element={<Navigate to="/login" replace />} />
 
         </Routes>
+        </VideoProvider>
     );
 }
 

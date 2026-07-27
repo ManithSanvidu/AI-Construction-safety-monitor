@@ -7,9 +7,10 @@ if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import API_TITLE, API_VERSION
-from app.routers import auth, video, reports
+from app.routers import auth, video, reports,stocks
 
 app = FastAPI(title=API_TITLE, version=API_VERSION)
 
@@ -22,9 +23,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 app.include_router(auth.router)
 app.include_router(video.router)
 app.include_router(reports.router)
+app.include_router(stocks.router)
 
 @app.get("/")
 def read_root():

@@ -104,6 +104,16 @@ const Stocks=()=>{
         fetchStocks();
     };
 
+    const openAdd = () => {
+        setEditingStock(null);
+        setFormData({
+            item_name: "", quantity: 0, unit: "", brand: "", unit_price: 0,
+            purchase_date: "", status: "Available", additional_info: ""
+        });
+        setImageFile(null);
+        setShowModal(true);
+    };
+
     const openEdit=(stock)=>{
         setEditingStock(stock);
         setFormData({
@@ -163,7 +173,7 @@ const Stocks=()=>{
                         <p className="text-sm text-gray-500 font-medium">Inventory Stocks</p>
                     </div>
                     {isAdmin && (
-                        <button onClick={() => { setEditingStock(null); setShowModal(true); }} className="bg-[#0066CC] hover:bg-[#005bb5] text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-md transition-all">
+                        <button onClick={openAdd} className="bg-[#0066CC] hover:bg-[#005bb5] text-white px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-md transition-all">
                             <FaPlus /> Add Stock
                         </button>
                     )}

@@ -10,7 +10,8 @@ import {
     FaSignOutAlt,
     FaCheckCircle,
     FaTimesCircle,
-    FaShieldAlt
+    FaShieldAlt,
+    FaBox
 } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 import { useVideo } from "../context/VideoContext";
@@ -22,6 +23,7 @@ const navItems = [
     { name: "Compliance", icon: <FaClipboardList />, path: "/compliance" },
     { name: "Analytics", icon: <FaChartLine />, path: "/analytics" },
     { name: "Reports", icon: <FaFilePdf />, path: "/reports" },
+    { name: "Stocks", icon: <FaBox />, path: "/stocks" },
 ];
 
 const Compliance = () => {

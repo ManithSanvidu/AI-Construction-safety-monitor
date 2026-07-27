@@ -9,7 +9,8 @@ import {
     FaFilePdf,
     FaPlayCircle,
     FaSignOutAlt,
-    FaLock
+    FaLock,
+    FaBox
 } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 
@@ -20,6 +21,7 @@ const navItems = [
     { name: "Compliance", icon: <FaClipboardList />, path: "/compliance" },
     { name: "Analytics", icon: <FaChartLine />, path: "/analytics" },
     { name: "Reports", icon: <FaFilePdf />, path: "/reports" },
+    { name: "Stocks", icon: <FaBox />, path: "/stocks" },
 ];
 
 const Workers = () => {

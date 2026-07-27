@@ -10,7 +10,8 @@ import {
     FaChartLine,
     FaFilePdf,
     FaPlayCircle,
-    FaSignOutAlt
+    FaSignOutAlt,
+    FaBox
 } from "react-icons/fa";
 
 import { useVideo } from "../context/VideoContext";
@@ -22,6 +23,7 @@ const navItems = [
     { name: "Compliance", icon: <FaClipboardList />, path: "/compliance" },
     { name: "Analytics", icon: <FaChartLine />, path: "/analytics" },
     { name: "Reports", icon: <FaFilePdf />, path: "/reports" },
+    { name: "Stocks", icon: <FaBox />, path: "/stocks" },
 ];
 
 const Incidents = () => {

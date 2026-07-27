@@ -72,7 +72,7 @@ export const VideoProvider = ({ children }) => {
             <div ref={hiddenContainerRef} style={{ display: 'none' }}>
                 <img 
                     ref={imgRef}
-                    src={streamUrl || ""} 
+                    src={streamUrl || undefined} 
                     alt="Background AI Stream" 
                 />
             </div>

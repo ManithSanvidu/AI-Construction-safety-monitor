@@ -41,16 +41,17 @@ def register_user(user: UserCreate, db: Database = Depends(get_db)):
     new_user_dict = {
         "name": user.name,
         "email": user.email,
-        "hashed_password": hashed_password
+        "hashed_password": hashed_password,
+        "organization_id": user.organization_id
     }
     
     result = db.users.insert_one(new_user_dict)
     
-    # Return user data with stringified _id
     return UserResponse(
         id=str(result.inserted_id),
         name=user.name,
-        email=user.email
+        email=user.email,
+        organization_id=user.organization_id
     )
 
 @router.post("/login", response_model=Token)
@@ -73,11 +74,11 @@ def login_user(user: UserLogin, db: Database = Depends(get_db)):
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": db_user["email"], "role": "worker"}, expires_delta=access_token_expires
+        data={"sub": db_user["email"], "role": "worker", "organization_id": db_user.get("organization_id")} , expires_delta=access_token_expires
     )
     
     
-    return {"access_token": access_token, "token_type": "bearer", "role": "worker"}
+    return {"access_token": access_token, "token_type": "bearer", "role": "worker", "organization_id": db_user.get("organization_id")}
 
 @router.get("/users", response_model=List[UserResponse])
 def get_users(db: Database = Depends(get_db)):

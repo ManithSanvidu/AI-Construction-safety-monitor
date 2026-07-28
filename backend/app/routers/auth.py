@@ -62,9 +62,9 @@ def login_user(user: UserLogin, db: Database = Depends(get_db)):
         if user.password == admin_password:
             access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
             access_token = create_access_token(
-                data={"sub": admin_email}, expires_delta=access_token_expires
+                data={"sub": admin_email, "role": "admin"}, expires_delta=access_token_expires
             )
-            return {"access_token": access_token, "token_type": "bearer"}
+            return {"access_token": access_token, "token_type": "bearer", "role": "admin"}
         raise HTTPException(status_code=401, detail="Incorrect email or password")
 
     db_user = db.users.find_one({"email": user.email})
@@ -73,11 +73,11 @@ def login_user(user: UserLogin, db: Database = Depends(get_db)):
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": db_user["email"]}, expires_delta=access_token_expires
+        data={"sub": db_user["email"], "role": "worker"}, expires_delta=access_token_expires
     )
     
     
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer", "role": "worker"}
 
 @router.get("/users", response_model=List[UserResponse])
 def get_users(db: Database = Depends(get_db)):

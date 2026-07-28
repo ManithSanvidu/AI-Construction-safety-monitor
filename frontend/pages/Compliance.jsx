@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import {
     FaHardHat,
     FaUserFriends,
@@ -29,7 +30,33 @@ const navItems = [
 const Compliance = () => {
     const navigate = useNavigate();
     const { user, logout } = useAuth();
-    const { statsData, incidentsData } = useVideo();
+    
+    const [statsData, setStatsData] = useState({ compliance_score: 100 });
+    const [incidentsData, setIncidentsData] = useState([]);
+    
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                // Fetch stats
+                const statsRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/compliance`);
+                if (statsRes.ok) {
+                    setStatsData(await statsRes.json());
+                }
+                
+                // Fetch incidents to calculate violations manually
+                const incRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/incidents`);
+                if (incRes.ok) {
+                    setIncidentsData(await incRes.json());
+                }
+            } catch (err) {
+                console.error("Failed to fetch compliance data:", err);
+            }
+        };
+        fetchData();
+        const interval = setInterval(fetchData, 5000);
+        return () => clearInterval(interval);
+    }, []);
+    
     const activeTab = "Compliance";
     const isAdmin = user?.role === "admin";
 

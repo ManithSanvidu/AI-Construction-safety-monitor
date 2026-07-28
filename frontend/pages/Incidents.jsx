@@ -30,9 +30,30 @@ const navItems = [
 const Incidents = () => {
     const navigate = useNavigate();
     const activeTab = "Incidents";
-    const { incidentsData } = useVideo();
+    
+    // Replace useVideo() with a fetch to our new persistent backend
+    const [incidentsData, setIncidentsData] = useState([]);
     const { user, logout } = useAuth();
     const isAdmin = user?.role === "admin";
+
+    useEffect(() => {
+        const fetchIncidents = async () => {
+            try {
+                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/incidents`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setIncidentsData(data);
+                }
+            } catch (err) {
+                console.error("Failed to fetch incidents:", err);
+            }
+        };
+        fetchIncidents();
+        
+        // Optional: Poll every 5 seconds if you want it to feel "live"
+        const interval = setInterval(fetchIncidents, 5000);
+        return () => clearInterval(interval);
+    }, []);
 
     const handleLogout = () => {
         logout();

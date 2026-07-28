@@ -9,13 +9,13 @@ from twilio.rest import Client
 
 router=APIRouter(prefix="/api/stocks",tags=["stocks"])
 
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "stocks")
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads", "stocks")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "your_account_sid")
-TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "your_auth_token")
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID","ACe55e19b57c97440065b182d31e374ce4")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "404df8b198d252e9e4898d2545c96fc8")
 TWILIO_WHATSAPP_SENDER = os.getenv("TWILIO_WHATSAPP_SENDER", "whatsapp:+14155238886")
-ADMIN_WHATSAPP_NUMBER = os.getenv("ADMIN_WHATSAPP_NUMBER", "whatsapp:+1234567890")
+ADMIN_WHATSAPP_NUMBER = os.getenv("ADMIN_WHATSAPP_NUMBER", "whatsapp:+94760429021")
 
 def serialize_doc(doc):
     if"_id" in doc:
@@ -43,9 +43,9 @@ async def add_stock(
     image_url = ""
 
     if image:
-        file_path=os.path.json(UPLOAD_DIR,image.filename)
+        file_path=os.path.join(UPLOAD_DIR,image.filename)
         with open(file_path,"wb") as buffer:
-            shutil.copyfilobj(image.file,buffer)
+            shutil.copyfileobj(image.file,buffer)
         image_url = f"/uploads/stocks/{image.filename}"
 
     stock_doc={
@@ -101,8 +101,8 @@ async def update_stock(
             shutil.copyfileobj(image.file,buffer)
         update_data["image_url"]=f"/uploads/stocks/{image.filename}"
 
-    db.stocks.update_one({"_id":ObjectId(stock_id)},{"$set",update_data})
-    return {"status":"success","message":"Stcok updated"}
+    db.stocks.update_one({"_id":ObjectId(stock_id)},{"$set":update_data})
+    return {"status":"success","message":"Stock updated"}
 
 @router.delete("/{stock_id}")
 async def delete_stock(stock_id:str):
@@ -110,21 +110,21 @@ async def delete_stock(stock_id:str):
     return {"status":"success","message":"Stock deleted"}
 
 @router.post("/{stock_id}/request")
-async def request_stock(stock_id: str, worker_name: str = Form(...)):
+async def request_stock(stock_id: str, worker_name: str = Form(...), quantity: int = Form(1)):
     stock = db.stocks.find_one({"_id": ObjectId(stock_id)})
     if not stock:
         raise HTTPException(status_code=404, detail="Stock not found")
 
-    db.stock.update(
+    db.stocks.update_one(
         {"_id":ObjectId(stock_id)},
-        {"$set":{"critical_out_of_stock":True,"status":"Out of stock"}}
+        {"$set":{"critical_out_of_stock":True,"status":"Out of stock", "requested_quantity": quantity, "requested_by": worker_name}}
     )
 
     try:
         client=Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-        message=client.message.create(
+        message=client.messages.create(
             from_=TWILIO_WHATSAPP_SENDER,
-            body=f"⚠️ *STOCK ALERT* ⚠️\nWorker '{worker_name}' has requested stock for *{stock['item_name']}* (ID: {stock['stock_id']}).\nStatus marked as CRITICAL OUT OF STOCK.",
+            body=f"⚠️ *STOCK ALERT* ⚠️\nWorker '{worker_name}' has requested *{quantity}x* stock for *{stock['item_name']}* (ID: {stock['stock_id']}).\nStatus marked as CRITICAL OUT OF STOCK.",
             to=ADMIN_WHATSAPP_NUMBER
         )
     except Exception as e:

@@ -1,11 +1,21 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { FaHardHat, FaEnvelope, FaLock, FaUser, FaEye, FaEyeSlash, FaArrowRight } from "react-icons/fa";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { FaHardHat, FaEnvelope, FaLock, FaUser, FaEye, FaEyeSlash, FaArrowRight, FaBuilding } from "react-icons/fa";
 
 function Register() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const queryParams = new URLSearchParams(location.search);
+    const initialOrgId = queryParams.get("org_id") || "";
+    const initialOrgName = queryParams.get("org_name") || "";
+
     const [showPassword, setShowPassword] = useState(false);
-    const [form, setForm] = useState({ name: "", email: "", password: "" });
+    const [form, setForm] = useState({ 
+        name: "", 
+        email: "", 
+        password: "",
+        organization_id: initialOrgId
+    });
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
@@ -112,6 +122,13 @@ function Register() {
                         {error && (
                             <div className="p-4 bg-red-50/50 backdrop-blur-md text-red-600 rounded-2xl text-sm border border-red-100 flex items-center shadow-sm">
                                 {error}
+                            </div>
+                        )}
+
+                        {initialOrgName && (
+                            <div className="p-4 bg-blue-50/50 backdrop-blur-md text-blue-700 rounded-2xl text-sm border border-blue-100 flex items-center gap-2 shadow-sm">
+                                <FaBuilding />
+                                <span>Joining Organization: <strong>{initialOrgName}</strong></span>
                             </div>
                         )}
 

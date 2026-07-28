@@ -15,6 +15,7 @@ import {
     FaBox
 } from "react-icons/fa";
 import { useVideo } from "../context/VideoContext";
+import { useAuth } from "../context/AuthContext";
 
 function Dashboard() {
     const navigate = useNavigate();
@@ -22,6 +23,8 @@ function Dashboard() {
     const [uploading, setUploading] = useState(false);
     const { videoData, setVideoData, statsData, incidentsData, imgRef, hiddenContainerRef, clearVideo } = useVideo();
     const dashboardContainerRef = useRef(null);
+    const { user, logout } = useAuth();
+    const isAdmin = user?.role === "admin";
 
     useEffect(() => {
         if (dashboardContainerRef.current && imgRef.current) {
@@ -69,7 +72,7 @@ function Dashboard() {
     ];
 
     const handleLogout = () => {
-        // Here you would also clear any authentication tokens if implemented
+        logout();
         navigate("/login");
     };
 
@@ -123,7 +126,7 @@ function Dashboard() {
                 
                 <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
                     <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4 mt-2 px-3">Main Menu</div>
-                    {navItems.map((item) => (
+                    {navItems.filter(item => isAdmin || !["Workers", "Analytics", "Reports"].includes(item.name)).map((item) => (
                         <Link
                             key={item.name}
                             to={item.path}
@@ -173,6 +176,7 @@ function Dashboard() {
                         <p className="text-sm text-gray-500 font-medium">Monitor your construction site safety</p>
                     </div>
                     
+                    {isAdmin && (
                     <div className="flex items-center gap-4">
                         <div className="flex bg-white/50 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                             <input 
@@ -211,6 +215,7 @@ function Dashboard() {
                             <input type="file" className="hidden" accept="video/mp4,video/x-m4v,video/*" onChange={handleFileUpload} disabled={uploading} />
                         </label>
                     </div>
+                    )}
                 </header>
 
                 {/* Dashboard Content */}

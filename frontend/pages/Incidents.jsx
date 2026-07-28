@@ -15,6 +15,7 @@ import {
 } from "react-icons/fa";
 
 import { useVideo } from "../context/VideoContext";
+import { useAuth } from "../context/AuthContext";
 
 const navItems = [
     { name: "Live Tracking", icon: <FaPlayCircle />, path: "/dashboard" },
@@ -30,8 +31,11 @@ const Incidents = () => {
     const navigate = useNavigate();
     const activeTab = "Incidents";
     const { incidentsData } = useVideo();
+    const { user, logout } = useAuth();
+    const isAdmin = user?.role === "admin";
 
     const handleLogout = () => {
+        logout();
         navigate("/login");
     };
 
@@ -49,7 +53,7 @@ const Incidents = () => {
                 
                 <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
                     <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4 mt-2 px-3">Main Menu</div>
-                    {navItems.map((item) => (
+                    {navItems.filter(item => isAdmin || !["Workers", "Analytics", "Reports"].includes(item.name)).map((item) => (
                         <Link
                             key={item.name}
                             to={item.path}

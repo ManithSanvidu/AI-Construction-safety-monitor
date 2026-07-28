@@ -40,7 +40,7 @@ function Login() {
             }
 
             const data = await response.json();
-            login({ email: form.email, token: data.access_token });
+            login({ email: form.email, token: data.access_token, role: data.role });
             navigate("/dashboard");
         } catch (err) {
             setError(err.message);

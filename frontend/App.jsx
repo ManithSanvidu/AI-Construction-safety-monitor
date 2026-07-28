@@ -10,10 +10,11 @@ import Incidents from "./pages/Incidents";
 import Workers from "./pages/Workers";
 import Compliance from "./pages/Compliance";
 import NotFound from "./pages/NotFound";
-import Stocks from "./pages/Stocks"
+import Stocks from "./pages/Stocks";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import { VideoProvider } from "./context/VideoContext";
+import ChatbotWidget from "./components/ChatbotWidget";
 
 function App() {
     return (
@@ -38,7 +39,7 @@ function App() {
             <Route
                 path="/upload"
                 element={
-                    <ProtectedRoute>
+                    <ProtectedRoute adminOnly>
                         <Upload />
                     </ProtectedRoute>
                 }
@@ -47,7 +48,7 @@ function App() {
             <Route
                 path="/analytics"
                 element={
-                    <ProtectedRoute>
+                    <ProtectedRoute adminOnly>
                         <Analytics />
                     </ProtectedRoute>
                 }
@@ -56,7 +57,7 @@ function App() {
             <Route
                 path="/reports"
                 element={
-                    <ProtectedRoute>
+                    <ProtectedRoute adminOnly>
                         <Reports />
                     </ProtectedRoute>
                 }
@@ -83,7 +84,7 @@ function App() {
             <Route
                 path="/workers"
                 element={
-                    <ProtectedRoute>
+                    <ProtectedRoute adminOnly>
                         <Workers />
                     </ProtectedRoute>
                 }
@@ -97,6 +98,7 @@ function App() {
             <Route path="*" element={<Navigate to="/login" replace />} />
 
         </Routes>
+        <ChatbotWidget />
         </VideoProvider>
     );
 }

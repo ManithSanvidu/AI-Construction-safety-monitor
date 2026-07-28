@@ -81,6 +81,14 @@ async def update_stock(
     image: Optional[UploadFile] = File(None)
 ):
     
+    existing_stock = db.stocks.find_one({"_id": ObjectId(stock_id)})
+    
+    # Automatically set status to Available if the new quantity meets or exceeds the requested amount
+    if existing_stock and existing_stock.get("critical_out_of_stock"):
+        requested_qty = existing_stock.get("requested_quantity", 1)
+        if quantity > 0 and quantity >= requested_qty:
+            status = "Available"
+
     update_data = {
         "item_name": item_name,
         "quantity": quantity,
@@ -92,7 +100,9 @@ async def update_stock(
         "status": status,
         "additional_info": additional_info,
         # Remove critical flag when updated
-        "critical_out_of_stock": False 
+        "critical_out_of_stock": False,
+        "requested_quantity": 0,
+        "requested_by": ""
     }
 
     if image and image.filename:

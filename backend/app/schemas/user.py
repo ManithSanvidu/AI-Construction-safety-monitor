@@ -4,6 +4,7 @@ from typing import Optional
 class UserBase(BaseModel):
     name: str
     email: EmailStr
+    organization_id: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str
@@ -22,3 +23,4 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     role: str = "worker"
+    organization_id: Optional[str] = None

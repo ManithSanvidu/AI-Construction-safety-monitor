@@ -42,9 +42,18 @@ const Stocks=()=>{
     const [imageFile, setImageFile] = useState(null);
 
     const handleRequest = async (id) => {
+        const qtyStr = window.prompt("Enter quantity to request:", "1");
+        if (qtyStr === null) return; // User cancelled
+        const quantity = parseInt(qtyStr, 10);
+        if (isNaN(quantity) || quantity <= 0) {
+            alert("Please enter a valid positive number.");
+            return;
+        }
+
         try {
             const formData = new FormData();
             formData.append("worker_name", user?.email || "Unknown Worker");
+            formData.append("quantity", quantity);
             
             const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/stocks/${id}/request`, {
                 method: "POST",
@@ -188,7 +197,7 @@ const Stocks=()=>{
                                 <p className="text-sm mt-1 font-medium">
                                     Workers have requested the following items: 
                                     <span className="font-bold ml-1">
-                                        {stocks.filter(s => s.critical_out_of_stock).map(s => s.item_name).join(', ')}
+                                        {stocks.filter(s => s.critical_out_of_stock).map(s => `${s.requested_quantity || 1}x ${s.item_name}`).join(', ')}
                                     </span>.
                                 </p>
                             </div>

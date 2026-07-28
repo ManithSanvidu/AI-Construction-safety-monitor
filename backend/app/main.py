@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import API_TITLE, API_VERSION
-from app.routers import auth, video, reports,stocks
+from app.routers import auth, video, reports, stocks, chat
 
 app = FastAPI(title=API_TITLE, version=API_VERSION)
 
@@ -29,6 +29,7 @@ app.include_router(auth.router)
 app.include_router(video.router)
 app.include_router(reports.router)
 app.include_router(stocks.router)
+app.include_router(chat.router)
 
 @app.get("/")
 def read_root():

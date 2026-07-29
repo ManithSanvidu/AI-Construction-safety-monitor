@@ -1,0 +1,52 @@
+import os
+import logging
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+from twilio.rest import Client
+
+router = APIRouter(prefix="/api/contact", tags=["Contact"])
+logger = logging.getLogger(__name__)
+
+# Load Twilio config from env
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_WHATSAPP_SENDER = os.getenv("TWILIO_WHATSAPP_SENDER")
+ADMIN_WHATSAPP_NUMBER = os.getenv("ADMIN_WHATSAPP_NUMBER", "whatsapp:+94760429021")
+
+class ContactMessage(BaseModel):
+    name: str
+    email: str
+    subject: str
+    message: str
+
+@router.post("/send")
+async def send_contact_message(data: ContactMessage):
+    if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_SENDER]):
+        logger.error("Twilio credentials are not fully configured.")
+        raise HTTPException(status_code=500, detail="WhatsApp integration not configured on the server.")
+
+    try:
+        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        
+        # Format the WhatsApp message body
+        whatsapp_body = (
+            f"*New Contact Message*\n\n"
+            f"*Name:* {data.name}\n"
+            f"*Email:* {data.email}\n"
+            f"*Subject:* {data.subject}\n\n"
+            f"*Message:*\n{data.message}"
+        )
+        
+        # Send message to admin
+        message = client.messages.create(
+            body=whatsapp_body,
+            from_=TWILIO_WHATSAPP_SENDER,
+            to=ADMIN_WHATSAPP_NUMBER
+        )
+        
+        logger.info(f"WhatsApp message sent! SID: {message.sid}")
+        return {"status": "success", "message": "Message sent successfully"}
+
+    except Exception as e:
+        logger.error(f"Failed to send WhatsApp message: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to send message via WhatsApp.")

@@ -47,6 +47,8 @@ export default function Pricing() {
 
       if (!data.hash) throw new Error("Failed to generate payment hash");
 
+      const amountFormatted = amount.toFixed(2);
+
       const payment = {
         sandbox: true,
         merchant_id: data.merchant_id,
@@ -55,7 +57,7 @@ export default function Pricing() {
         notify_url: 'http://localhost:8000/api/payment/notify',
         order_id: mockOrgId,
         items: 'SiteWatchAI Lifetime Access',
-        amount: amount,
+        amount: amountFormatted,
         currency: currency,
         hash: data.hash,
         first_name: formData.ownerName.split(' ')[0] || formData.ownerName,
@@ -85,7 +87,7 @@ export default function Pricing() {
           alert("Payment failed: " + error);
       };
 
-      window.payhere.startCheckout(payment);
+      window.payhere.startPayment(payment);
     } catch (error) {
       console.error(error);
       setIsPaying(false);

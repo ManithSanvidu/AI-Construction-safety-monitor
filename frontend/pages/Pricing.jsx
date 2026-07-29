@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, CreditCard, CheckCircle2 } from 'lucide-react';
@@ -34,7 +35,8 @@ export default function Pricing() {
     const amount = currency === 'LKR' ? 9000 : 27;
 
     try {
-      const response = await fetch('http://localhost:8000/api/payment/generate-hash', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/payment/generate-hash`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -52,9 +54,9 @@ export default function Pricing() {
       const payment = {
         sandbox: true,
         merchant_id: data.merchant_id,
-        return_url: 'http://localhost:5173/pricing',
-        cancel_url: 'http://localhost:5173/pricing',
-        notify_url: 'http://localhost:8000/api/payment/notify',
+        return_url: `${window.location.origin}/pricing`,
+        cancel_url: `${window.location.origin}/pricing`,
+        notify_url: `${apiUrl}/api/payment/notify`,
         order_id: mockOrgId,
         items: 'SiteWatchAI Lifetime Access',
         amount: amountFormatted,

@@ -13,11 +13,12 @@ export default function Contact() {
     setStatus('loading');
     
     try {
-      const response = await fetch('http://localhost:8000/api/contact/send', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/contact/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
-      });
+    });
       
       if (!response.ok) throw new Error('Failed to send message');
       

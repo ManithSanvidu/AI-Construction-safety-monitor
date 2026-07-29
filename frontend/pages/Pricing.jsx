@@ -25,20 +25,72 @@ export default function Pricing() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handlePayment = (e) => {
+  const handlePayment = async (e) => {
     e.preventDefault();
     setIsPaying(true);
-    // Simulate payment processing
-    setTimeout(() => {
+    
+    // Generate a mock order/organization ID for this transaction
+    const mockOrgId = "org_" + Math.random().toString(36).substr(2, 9);
+    const amount = currency === 'LKR' ? 9000 : 27;
+
+    try {
+      const response = await fetch('http://localhost:8000/api/payment/generate-hash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: mockOrgId,
+          amount: amount,
+          currency: currency
+        })
+      });
+      const data = await response.json();
+
+      if (!data.hash) throw new Error("Failed to generate payment hash");
+
+      const payment = {
+        sandbox: true,
+        merchant_id: data.merchant_id,
+        return_url: 'http://localhost:5173/pricing',
+        cancel_url: 'http://localhost:5173/pricing',
+        notify_url: 'http://localhost:8000/api/payment/notify',
+        order_id: mockOrgId,
+        items: 'SiteWatchAI Lifetime Access',
+        amount: amount,
+        currency: currency,
+        hash: data.hash,
+        first_name: formData.ownerName.split(' ')[0] || formData.ownerName,
+        last_name: formData.ownerName.split(' ')[1] || '',
+        email: formData.email,
+        phone: '0771234567', // Placeholder
+        address: 'No.1, Galle Road', // Placeholder
+        city: 'Colombo',
+        country: 'Sri Lanka',
+      };
+
+      window.payhere.onCompleted = function onCompleted(orderId) {
+          setIsPaying(false);
+          setPaymentSuccess(true);
+          setTimeout(() => {
+             navigate(`/register?org_id=${orderId}&org_name=${encodeURIComponent(formData.orgName)}`);
+          }, 2000);
+      };
+
+      window.payhere.onDismissed = function onDismissed() {
+          setIsPaying(false);
+      };
+
+      window.payhere.onError = function onError(error) {
+          console.error("Payment Error:", error);
+          setIsPaying(false);
+          alert("Payment failed: " + error);
+      };
+
+      window.payhere.startCheckout(payment);
+    } catch (error) {
+      console.error(error);
       setIsPaying(false);
-      setPaymentSuccess(true);
-      // Generate a mock organization ID
-      const mockOrgId = "org_" + Math.random().toString(36).substr(2, 9);
-      // Redirect to register after a brief success message
-      setTimeout(() => {
-         navigate(`/register?org_id=${mockOrgId}&org_name=${encodeURIComponent(formData.orgName)}`);
-      }, 2000);
-    }, 2000);
+      alert("Error initiating payment.");
+    }
   };
 
   return (

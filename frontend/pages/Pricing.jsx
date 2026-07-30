@@ -19,6 +19,7 @@ export default function Pricing() {
   const [isPaying, setIsPaying] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
+  const apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
   const price = currency === 'LKR' ? 'Rs. 9,000' : '$27';
 
   const handleInputChange = (e) => {

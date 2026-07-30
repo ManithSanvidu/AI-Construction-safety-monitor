@@ -17,4 +17,4 @@ passlib[bcrypt]
 python-jose[cryptography]
 bcrypt
 twilio
-email-validator==2.2.0
+google-generativeai

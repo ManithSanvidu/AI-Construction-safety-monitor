@@ -32,69 +32,17 @@ export default function Pricing() {
     
     // Generate a mock order/organization ID for this transaction
     const mockOrgId = "org_" + Math.random().toString(36).substr(2, 9);
-    const amount = currency === 'LKR' ? 9000 : 27;
 
-    try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}/api/payment/generate-hash`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          order_id: mockOrgId,
-          amount: amount,
-          currency: currency
-        })
-      });
-      const data = await response.json();
-
-      if (!data.hash) throw new Error("Failed to generate payment hash");
-
-      const amountFormatted = amount.toFixed(2);
-
-      const payment = {
-        sandbox: true,
-        merchant_id: data.merchant_id,
-        return_url: `${window.location.origin}/pricing`,
-        cancel_url: `${window.location.origin}/pricing`,
-        notify_url: `${apiUrl}/api/payment/notify`,
-        order_id: mockOrgId,
-        items: 'SiteWatchAI Lifetime Access',
-        amount: amountFormatted,
-        currency: currency,
-        hash: data.hash,
-        first_name: formData.ownerName.split(' ')[0] || formData.ownerName,
-        last_name: formData.ownerName.split(' ')[1] || '',
-        email: formData.email,
-        phone: '0771234567', // Placeholder
-        address: 'No.1, Galle Road', // Placeholder
-        city: 'Colombo',
-        country: 'Sri Lanka',
-      };
-
-      window.payhere.onCompleted = function onCompleted(orderId) {
-          setIsPaying(false);
-          setPaymentSuccess(true);
-          setTimeout(() => {
-             navigate(`/register?org_id=${orderId}&org_name=${encodeURIComponent(formData.orgName)}`);
-          }, 2000);
-      };
-
-      window.payhere.onDismissed = function onDismissed() {
-          setIsPaying(false);
-      };
-
-      window.payhere.onError = function onError(error) {
-          console.error("Payment Error:", error);
-          setIsPaying(false);
-          alert("Payment failed: " + error);
-      };
-
-      window.payhere.startPayment(payment);
-    } catch (error) {
-      console.error(error);
+    // Simulate a secure checkout process delay (Demo Mode Bypass)
+    setTimeout(() => {
       setIsPaying(false);
-      alert("Error initiating payment.");
-    }
+      setPaymentSuccess(true);
+      
+      // Proceed directly to registration after simulated success
+      setTimeout(() => {
+         navigate(`/register?org_id=${mockOrgId}&org_name=${encodeURIComponent(formData.orgName)}`);
+      }, 2000);
+    }, 1500);
   };
 
   return (

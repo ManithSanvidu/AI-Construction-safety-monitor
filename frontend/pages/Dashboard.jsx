@@ -85,7 +85,8 @@ function Dashboard() {
         formData.append("file", file);
 
         try {
-            const apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+            let apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+            apiUrl = apiUrl.replace(/\/+$/, '');
             const response = await fetch(`${apiUrl}/api/video/upload`, {
                 method: "POST",
                 body: formData,

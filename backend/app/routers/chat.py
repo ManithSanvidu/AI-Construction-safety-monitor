@@ -7,7 +7,7 @@ from app.database import db
 router=APIRouter(prefix="/api/chat",tags=["chat"])
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model=genai.GenerativeModel('gemini-flash-latest')
+model=genai.GenerativeModel('gemini-1.5-flash')
 
 class ChatRequest(BaseModel):
     message:str

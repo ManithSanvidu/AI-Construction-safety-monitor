@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { FaHardHat, FaEnvelope, FaLock, FaUser, FaEye, FaEyeSlash, FaArrowRight, FaBuilding } from "react-icons/fa";
@@ -37,7 +38,10 @@ function Register() {
             const apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
             const response = await fetch(`${apiUrl}/api/auth/register`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "ngrok-skip-browser-warning": "true"
+                },
                 body: JSON.stringify(form)
             });
 

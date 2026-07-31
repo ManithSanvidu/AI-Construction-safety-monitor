@@ -41,13 +41,17 @@ const Compliance = () => {
         const fetchData = async () => {
             try {
                 // Fetch stats
-                const statsRes = await fetch(`${apiUrl}/api/compliance`);
+                const statsRes = await fetch(`${apiUrl}/api/compliance`, {
+                    headers: { "ngrok-skip-browser-warning": "true" }
+                });
                 if (statsRes.ok) {
                     setStatsData(await statsRes.json());
                 }
                 
                 // Fetch incidents to calculate violations manually
-                const incRes = await fetch(`${apiUrl}/api/incidents`);
+                const incRes = await fetch(`${apiUrl}/api/incidents`, {
+                    headers: { "ngrok-skip-browser-warning": "true" }
+                });
                 if (incRes.ok) {
                     setIncidentsData(await incRes.json());
                 }

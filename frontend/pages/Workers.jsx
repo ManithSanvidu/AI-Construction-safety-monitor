@@ -47,7 +47,8 @@ const Workers = () => {
                     // If not, you will need to add a GET /api/users endpoint in auth.py
                     const res = await fetch(`${apiUrl}/api/auth/users`, {
                         headers: {
-                            "Authorization": `Bearer ${user.token}`
+                            "Authorization": `Bearer ${user.token}`,
+                            "ngrok-skip-browser-warning": "true"
                         }
                     });
 

@@ -89,6 +89,9 @@ function Dashboard() {
             apiUrl = apiUrl.replace(/\/+$/, '');
             const response = await fetch(`${apiUrl}/api/video/upload`, {
                 method: "POST",
+                headers: {
+                    "ngrok-skip-browser-warning": "true"
+                },
                 body: formData,
             });
 

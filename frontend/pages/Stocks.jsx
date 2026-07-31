@@ -60,6 +60,7 @@ const Stocks=()=>{
             
             const response = await fetch(`${apiUrl}/api/stocks/${id}/request`, {
                 method: "POST",
+                headers: { "ngrok-skip-browser-warning": "true" },
                 body: formData
             });
 
@@ -78,7 +79,9 @@ const Stocks=()=>{
 
     const fetchStocks=async()=>{
         try{
-            const res=await fetch(`${apiUrl}/api/stocks`);
+            const res=await fetch(`${apiUrl}/api/stocks`, {
+                headers: { "ngrok-skip-browser-warning": "true" }
+            });
             const data=await res.json();
             setStocks(data);
         }catch(error){
@@ -109,7 +112,11 @@ const Stocks=()=>{
             
         const method = editingStock ? "PUT" : "POST";
 
-        await fetch(url, { method, body: data });
+        await fetch(url, { 
+            method, 
+            headers: { "ngrok-skip-browser-warning": "true" },
+            body: data 
+        });
         setShowModal(false);
         setEditingStock(null);
         setImageFile(null);

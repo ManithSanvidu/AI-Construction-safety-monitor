@@ -22,7 +22,11 @@ export const VideoProvider = ({ children }) => {
                 try {
                     let apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
                     apiUrl = apiUrl.replace(/\/+$/, '');
-                    const res = await fetch(`${apiUrl}/api/video/incidents`);
+                    const res = await fetch(`${apiUrl}/api/video/incidents`, {
+                        headers: {
+                            "ngrok-skip-browser-warning": "true"
+                        }
+                    });
                     if (res.ok && isActive) {
                         const data = await res.json();
                         setStatsData({

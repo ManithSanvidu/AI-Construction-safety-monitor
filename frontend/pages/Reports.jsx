@@ -105,7 +105,9 @@ const Reports = () => {
     // Specific Downloads
     const handleDailySummary = async (type) => {
         try {
-            const res = await fetch(`${apiUrl}/api/reports/daily`);
+            const res = await fetch(`${apiUrl}/api/reports/daily`, {
+                headers: { "ngrok-skip-browser-warning": "true" }
+            });
             const dataObj = await res.json();
             const title = "Daily Safety Summary";
             
@@ -126,7 +128,9 @@ const Reports = () => {
 
     const handleWeeklyComprehensive = async (type) => {
         try {
-            const res = await fetch(`${apiUrl}/api/reports/weekly`);
+            const res = await fetch(`${apiUrl}/api/reports/weekly`, {
+                headers: { "ngrok-skip-browser-warning": "true" }
+            });
             const dataObj = await res.json();
             const title = "Weekly Safety Summary";
             
@@ -148,7 +152,9 @@ const Reports = () => {
 
     const handleIncidentLogs = async (type) => {
         try {
-            const res = await fetch(`${apiUrl}/api/reports/incidents`);
+            const res = await fetch(`${apiUrl}/api/reports/incidents`, {
+                headers: { "ngrok-skip-browser-warning": "true" }
+            });
             const rawData = await res.json();
             const title = "Incident Logs Report";
             const date = new Date().toISOString().split('T')[0];
@@ -175,7 +181,9 @@ const Reports = () => {
 
     const handleComplianceAudit = async (type) => {
         try {
-            const res = await fetch(`${apiUrl}/api/reports/compliance`);
+            const res = await fetch(`${apiUrl}/api/reports/compliance`, {
+                headers: { "ngrok-skip-browser-warning": "true" }
+            });
             const dataObj = await res.json();
             const title = "Compliance Audit Report";
             const date = new Date().toISOString().split('T')[0];

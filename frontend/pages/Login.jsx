@@ -30,7 +30,8 @@ function Login() {
             const response = await fetch(`${apiUrl}/api/auth/login`, {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "ngrok-skip-browser-warning": "true"
                 },
                 body: JSON.stringify({ email: form.email, password: form.password })
             });

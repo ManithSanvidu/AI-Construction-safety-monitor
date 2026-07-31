@@ -42,7 +42,9 @@ const Incidents = () => {
     useEffect(() => {
         const fetchIncidents = async () => {
             try {
-                const res = await fetch(`${apiUrl}/api/incidents`);
+                const res = await fetch(`${apiUrl}/api/incidents`, {
+                    headers: { "ngrok-skip-browser-warning": "true" }
+                });
                 if (res.ok) {
                     const data = await res.json();
                     setIncidentsData(data);

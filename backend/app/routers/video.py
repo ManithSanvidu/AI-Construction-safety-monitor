@@ -12,7 +12,7 @@ from app.database import db
 
 router = APIRouter(prefix="/api/video", tags=["video"])
 
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads", "videos")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Limit OpenCV threads to prevent memory explosion during concurrent FFmpeg decoding

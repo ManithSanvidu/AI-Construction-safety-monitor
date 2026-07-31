@@ -20,7 +20,8 @@ export const VideoProvider = ({ children }) => {
         if (videoData) {
             interval = setInterval(async () => {
                 try {
-                    const apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+                    let apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+                    apiUrl = apiUrl.replace(/\/+$/, '');
                     const res = await fetch(`${apiUrl}/api/video/incidents`);
                     if (res.ok && isActive) {
                         const data = await res.json();
@@ -51,11 +52,12 @@ export const VideoProvider = ({ children }) => {
         };
     }, [videoData]);
 
-    const apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    let apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    apiUrl = apiUrl.replace(/\/+$/, '');
     const streamUrl = videoData 
         ? (videoData.url 
             ? `${apiUrl}/api/video/stream?url=${encodeURIComponent(videoData.url)}&t=${videoData.timestamp}`
-            : `${apiUrl}/api/video/stream/${videoData.filename}?t=${videoData.timestamp}`)
+            : `${apiUrl}/api/video/stream/${encodeURIComponent(videoData.filename)}?t=${videoData.timestamp}`)
         : null;
 
     const clearVideo = () => {

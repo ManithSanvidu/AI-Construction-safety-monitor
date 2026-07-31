@@ -31,9 +31,9 @@ function Login() {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "ngrok-skip-browser-warning": "true"
+                    
                 },
-                body: JSON.stringify({ email: form.email, password: form.password })
+                body: JSON.stringify({ email: form.email.trim(), password: form.password.trim() })
             });
 
             if (!response.ok) {

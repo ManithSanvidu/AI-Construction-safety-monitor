@@ -33,7 +33,9 @@ const ChatbotWidget = () => {
         setIsLoading(true);
 
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/chat/`, {
+            let apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+            apiUrl = apiUrl.replace(/\/+$/, '');
+            const res = await fetch(`${apiUrl}/api/chat/`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ message: userMessage })

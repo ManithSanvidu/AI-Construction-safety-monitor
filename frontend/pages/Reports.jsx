@@ -40,6 +40,9 @@ const Reports = () => {
     
     // Tab State
     const [selectedTab, setSelectedTab] = useState("daily");
+    
+    let apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    apiUrl = apiUrl.replace(/\/+$/, '');
 
     const handleLogout = () => {
         logout();
@@ -102,7 +105,7 @@ const Reports = () => {
     // Specific Downloads
     const handleDailySummary = async (type) => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/reports/daily`);
+            const res = await fetch(`${apiUrl}/api/reports/daily`);
             const dataObj = await res.json();
             const title = "Daily Safety Summary";
             
@@ -123,7 +126,7 @@ const Reports = () => {
 
     const handleWeeklyComprehensive = async (type) => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/reports/weekly`);
+            const res = await fetch(`${apiUrl}/api/reports/weekly`);
             const dataObj = await res.json();
             const title = "Weekly Safety Summary";
             
@@ -145,7 +148,7 @@ const Reports = () => {
 
     const handleIncidentLogs = async (type) => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/reports/incidents`);
+            const res = await fetch(`${apiUrl}/api/reports/incidents`);
             const rawData = await res.json();
             const title = "Incident Logs Report";
             const date = new Date().toISOString().split('T')[0];
@@ -172,7 +175,7 @@ const Reports = () => {
 
     const handleComplianceAudit = async (type) => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/reports/compliance`);
+            const res = await fetch(`${apiUrl}/api/reports/compliance`);
             const dataObj = await res.json();
             const title = "Compliance Audit Report";
             const date = new Date().toISOString().split('T')[0];

@@ -26,6 +26,9 @@ const Stocks=()=>{
     const {user, logout}=useAuth();
     const isAdmin = user?.role === "admin";
     const activeTab="Stocks";
+    
+    let apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    apiUrl = apiUrl.replace(/\/+$/, '');
 
     const handleLogout = () => {
         logout();
@@ -55,7 +58,7 @@ const Stocks=()=>{
             formData.append("worker_name", user?.email || "Unknown Worker");
             formData.append("quantity", quantity);
             
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/stocks/${id}/request`, {
+            const response = await fetch(`${apiUrl}/api/stocks/${id}/request`, {
                 method: "POST",
                 body: formData
             });
@@ -75,7 +78,7 @@ const Stocks=()=>{
 
     const fetchStocks=async()=>{
         try{
-            const res=await fetch(`${import.meta.env.VITE_API_BASE_URL}/stocks`);
+            const res=await fetch(`${apiUrl}/api/stocks`);
             const data=await res.json();
             setStocks(data);
         }catch(error){
@@ -101,8 +104,8 @@ const Stocks=()=>{
         if (imageFile) data.append("image", imageFile);
 
         const url = editingStock 
-            ? `${import.meta.env.VITE_API_BASE_URL}/stocks/${editingStock._id}`
-            : `${import.meta.env.VITE_API_BASE_URL}/stocks`;
+            ? `${apiUrl}/api/stocks/${editingStock._id}`
+            : `${apiUrl}/api/stocks`;
             
         const method = editingStock ? "PUT" : "POST";
 
@@ -212,7 +215,7 @@ const Stocks=()=>{
                                 </div>
                             )}
                             {stock.image_url && (
-                                <img src={`http://localhost:8000${stock.image_url}`} alt={stock.item_name} className="w-full h-40 object-cover rounded-xl mb-4" />
+                                <img src={`${apiUrl}${stock.image_url}`} alt={stock.item_name} className="w-full h-40 object-cover rounded-xl mb-4" />
                             )}
                             <div className="flex justify-between items-start mb-2">
                                 <h3 className="text-xl font-bold text-gray-900">{stock.item_name}</h3>

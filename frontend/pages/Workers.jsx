@@ -34,6 +34,9 @@ const Workers = () => {
 
     const [workers, setWorkers] = useState([]);
     const [loading, setLoading] = useState(true);
+    
+    let apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    apiUrl = apiUrl.replace(/\/+$/, '');
 
     useEffect(() => {
         // Only attempt to fetch if the user is an admin
@@ -42,7 +45,7 @@ const Workers = () => {
                 try {
                     // Assuming you have this endpoint implemented in the backend
                     // If not, you will need to add a GET /api/users endpoint in auth.py
-                    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/users`, {
+                    const res = await fetch(`${apiUrl}/api/auth/users`, {
                         headers: {
                             "Authorization": `Bearer ${user.token}`
                         }

@@ -34,17 +34,20 @@ const Compliance = () => {
     const [statsData, setStatsData] = useState({ compliance_score: 100 });
     const [incidentsData, setIncidentsData] = useState([]);
     
+    let apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    apiUrl = apiUrl.replace(/\/+$/, '');
+    
     useEffect(() => {
         const fetchData = async () => {
             try {
                 // Fetch stats
-                const statsRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/compliance`);
+                const statsRes = await fetch(`${apiUrl}/api/compliance`);
                 if (statsRes.ok) {
                     setStatsData(await statsRes.json());
                 }
                 
                 // Fetch incidents to calculate violations manually
-                const incRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/incidents`);
+                const incRes = await fetch(`${apiUrl}/api/incidents`);
                 if (incRes.ok) {
                     setIncidentsData(await incRes.json());
                 }

@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { FaHardHat } from 'react-icons/fa';
 import { Sun, Moon } from 'lucide-react';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../context/ThemeContext.jsx';
 
 export default function PublicNavbar() {
   const navigate = useNavigate();

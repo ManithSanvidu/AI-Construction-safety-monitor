@@ -57,6 +57,10 @@ def get_project_context():
 @router.post("/")
 async def chat_with_ai(request:ChatRequest):
     try:
+        # Dynamically load and strip quotes from API key to prevent Render formatting errors
+        api_key = os.getenv("GEMINI_API_KEY", "").strip('"').strip("'")
+        genai.configure(api_key=api_key)
+        
         context=get_project_context()
 
         prompt = f"{context}\n\nUser Question: {request.message}\nAssistant Answer:"
@@ -66,5 +70,6 @@ async def chat_with_ai(request:ChatRequest):
 
     except Exception as e:
         print(f"Chatbot Error:{e}")
-        raise HTTPException(status_code=500,detail="Failed to process chat request")
+        # Return the actual error message so the frontend can display it
+        raise HTTPException(status_code=500,detail=f"Chatbot Error: {str(e)}")
     

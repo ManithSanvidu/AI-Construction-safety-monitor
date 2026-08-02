@@ -135,12 +135,13 @@ async def generate_frames(video_path: str):
 
     model = get_model()
     
-    # Run VideoCapture in a thread to prevent blocking
-    cap = await asyncio.to_thread(cv2.VideoCapture, video_path)
+    # Run VideoCapture in a thread to prevent blocking. 
+    # Force FFmpeg backend on Windows to avoid MSMF 'moov atom not found' issues.
+    cap = await asyncio.to_thread(cv2.VideoCapture, video_path, cv2.CAP_FFMPEG)
     
     if not cap.isOpened():
         active_streams.discard(video_path)
-        raise RuntimeError("Error opening video file")
+        raise RuntimeError("Error opening video file. Is the video format supported?")
 
     try:
         def read_and_process_sync():

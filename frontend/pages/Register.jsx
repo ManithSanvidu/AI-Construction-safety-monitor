@@ -40,7 +40,7 @@ function Register() {
                 method: "POST",
                 headers: { 
                     "Content-Type": "application/json",
-                    "ngrok-skip-browser-warning": "true"
+                    
                 },
                 body: JSON.stringify(form)
             });
@@ -60,7 +60,7 @@ function Register() {
     };
 
     return (
-        <div className="min-h-screen w-full flex bg-[#F5F5F7]" style={{ fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif" }}>
+        <div className="min-h-screen w-full flex bg-[#F5F5F7] dark:bg-[#09090b] transition-colors duration-300" style={{ fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif" }}>
             {/* Left Column (Brand/Info) */}
             <div className="hidden lg:flex flex-col justify-between w-1/2 relative overflow-hidden bg-gradient-to-br from-[#1d1d1f] to-[#000000] text-white p-12">
                 {/* Subtle glass orb effect */}
@@ -68,8 +68,8 @@ function Register() {
                 <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full bg-blue-500/10 blur-[150px] pointer-events-none" />
 
                 <div className="relative z-10 flex items-center gap-3">
-                    <div className="bg-white/10 backdrop-blur-xl border border-white/10 p-3 rounded-2xl shadow-lg">
-                        <FaHardHat size={24} className="text-[#E8A33D]" />
+                    <div className="bg-white/10 backdrop-blur-xl border border-white dark:border-white/10 p-3 rounded-2xl shadow-lg">
+                        <FaHardHat size={24} className="text-[#E8A33D] dark:text-[#E8A33D]" />
                     </div>
                     <span className="text-xl tracking-tight font-semibold">
                         SiteWatch AI
@@ -77,7 +77,7 @@ function Register() {
                 </div>
 
                 <div className="relative z-10 max-w-md mt-16">
-                    <span className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-[#E8A33D] font-medium mb-6 px-3 py-1 bg-[#E8A33D]/10 rounded-full border border-[#E8A33D]/20 backdrop-blur-md">
+                    <span className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-[#E8A33D] dark:text-[#E8A33D] font-medium mb-6 px-3 py-1 bg-[#E8A33D]/10 rounded-full border border-[#E8A33D]/20 backdrop-blur-md">
                         <span className="w-2 h-2 rounded-full bg-[#E8A33D] animate-pulse shadow-[0_0_8px_#E8A33D]" />
                         Join the platform
                     </span>
@@ -90,7 +90,7 @@ function Register() {
                     </p>
                 </div>
                 
-                <div className="relative z-10 flex items-center gap-8 mt-auto mb-4 bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-3xl shadow-2xl">
+                <div className="relative z-10 flex items-center gap-8 mt-auto mb-4 bg-white/5 backdrop-blur-xl border border-white dark:border-white/10 p-6 rounded-3xl shadow-2xl">
                     <div>
                         <div className="text-3xl text-white font-medium tracking-tight">98.4%</div>
                         <div className="mt-1 text-sm text-gray-400 font-medium">Detection accuracy</div>
@@ -104,23 +104,23 @@ function Register() {
             </div>
 
             {/* Right Column (Form) */}
-            <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8 lg:p-16 bg-[#F5F5F7]">
-                <div className="w-full max-w-md bg-white/60 backdrop-blur-2xl p-10 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white">
+            <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8 lg:p-16 bg-[#F5F5F7] dark:bg-[#09090b] transition-colors duration-300">
+                <div className="w-full max-w-md bg-white/60 backdrop-blur-2xl p-10 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white dark:border-white/10">
                     {/* Mobile Header */}
                     <div className="lg:hidden flex items-center gap-3 mb-10 justify-center">
                         <div className="bg-[#1d1d1f] text-white p-3 rounded-2xl shadow-md">
-                            <FaHardHat size={24} className="text-[#E8A33D]" />
+                            <FaHardHat size={24} className="text-[#E8A33D] dark:text-[#E8A33D]" />
                         </div>
-                        <span className="text-2xl tracking-tight font-semibold text-[#1d1d1f]">
+                        <span className="text-2xl tracking-tight font-semibold text-[#1d1d1f] dark:text-white">
                             SiteWatch AI
                         </span>
                     </div>
 
                     <div className="mb-10 text-center lg:text-left">
-                        <h2 className="text-3xl font-semibold text-[#1d1d1f] tracking-tight mb-2">
+                        <h2 className="text-3xl font-semibold text-[#1d1d1f] dark:text-white tracking-tight mb-2">
                             Request Access
                         </h2>
-                        <p className="text-gray-500 font-medium">Create an account for your organization.</p>
+                        <p className="text-gray-500 dark:text-gray-400 font-medium">Create an account for your organization.</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
@@ -148,7 +148,7 @@ function Register() {
                                     name="name"
                                     value={form.name}
                                     onChange={handleChange}
-                                    className="w-full pl-11 pr-4 py-3.5 bg-white/50 backdrop-blur-md border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0066CC]/20 focus:border-[#0066CC] transition-all shadow-sm text-gray-900 placeholder-gray-400 font-medium"
+                                    className="w-full pl-11 pr-4 py-3.5 bg-white/50 backdrop-blur-md border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0066CC]/20 focus:border-[#0066CC] transition-all shadow-sm text-gray-900 dark:text-gray-200 placeholder-gray-400 font-medium"
                                     placeholder="John Doe"
                                 />
                             </div>
@@ -165,7 +165,7 @@ function Register() {
                                     name="email"
                                     value={form.email}
                                     onChange={handleChange}
-                                    className="w-full pl-11 pr-4 py-3.5 bg-white/50 backdrop-blur-md border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0066CC]/20 focus:border-[#0066CC] transition-all shadow-sm text-gray-900 placeholder-gray-400 font-medium"
+                                    className="w-full pl-11 pr-4 py-3.5 bg-white/50 backdrop-blur-md border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0066CC]/20 focus:border-[#0066CC] transition-all shadow-sm text-gray-900 dark:text-gray-200 placeholder-gray-400 font-medium"
                                     placeholder="safety.admin@company.com"
                                 />
                             </div>
@@ -182,13 +182,13 @@ function Register() {
                                     name="password"
                                     value={form.password}
                                     onChange={handleChange}
-                                    className="w-full pl-11 pr-12 py-3.5 bg-white/50 backdrop-blur-md border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0066CC]/20 focus:border-[#0066CC] transition-all shadow-sm text-gray-900 placeholder-gray-400 font-medium"
+                                    className="w-full pl-11 pr-12 py-3.5 bg-white/50 backdrop-blur-md border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#0066CC]/20 focus:border-[#0066CC] transition-all shadow-sm text-gray-900 dark:text-gray-200 placeholder-gray-400 font-medium"
                                     placeholder="••••••••"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 dark:text-gray-400 transition-colors"
                                 >
                                     {showPassword ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
                                 </button>
@@ -205,9 +205,9 @@ function Register() {
                         </button>
                     </form>
 
-                    <p className="mt-8 text-center text-sm text-gray-500 font-medium">
+                    <p className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400 font-medium">
                         Already have an account?{" "}
-                        <Link to="/login" className="font-semibold text-[#0066CC] hover:text-[#0055AA] transition-colors">
+                        <Link to="/login" className="font-semibold text-[#0066CC] dark:text-[#E8A33D] hover:text-[#0055AA] dark:hover:text-[#c98d34] transition-colors">
                             Sign in instead
                         </Link>
                     </p>

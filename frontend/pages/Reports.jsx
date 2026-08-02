@@ -106,7 +106,7 @@ const Reports = () => {
     const handleDailySummary = async (type) => {
         try {
             const res = await fetch(`${apiUrl}/api/reports/daily`, {
-                headers: { "ngrok-skip-browser-warning": "true" }
+                
             });
             const dataObj = await res.json();
             const title = "Daily Safety Summary";
@@ -129,7 +129,7 @@ const Reports = () => {
     const handleWeeklyComprehensive = async (type) => {
         try {
             const res = await fetch(`${apiUrl}/api/reports/weekly`, {
-                headers: { "ngrok-skip-browser-warning": "true" }
+                
             });
             const dataObj = await res.json();
             const title = "Weekly Safety Summary";
@@ -153,7 +153,7 @@ const Reports = () => {
     const handleIncidentLogs = async (type) => {
         try {
             const res = await fetch(`${apiUrl}/api/reports/incidents`, {
-                headers: { "ngrok-skip-browser-warning": "true" }
+                
             });
             const rawData = await res.json();
             const title = "Incident Logs Report";
@@ -182,7 +182,7 @@ const Reports = () => {
     const handleComplianceAudit = async (type) => {
         try {
             const res = await fetch(`${apiUrl}/api/reports/compliance`, {
-                headers: { "ngrok-skip-browser-warning": "true" }
+                
             });
             const dataObj = await res.json();
             const title = "Compliance Audit Report";
@@ -235,26 +235,26 @@ const Reports = () => {
     ];
 
     return (
-        <div className="min-h-screen w-full flex bg-[#F5F5F7]" style={{ fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif" }}>
+        <div className="min-h-screen w-full flex bg-[#F5F5F7] dark:bg-[#09090b] transition-colors duration-300" style={{ fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif" }}>
             {/* Sidebar */}
-            <aside className="w-64 bg-white/60 backdrop-blur-2xl border-r border-gray-200/50 flex flex-col hidden md:flex sticky top-0 h-screen shadow-[4px_0_24px_rgb(0,0,0,0.02)]">
-                <div className="p-6 flex items-center gap-3 border-b border-gray-200/50">
-                    <div className="bg-gradient-to-br from-[#1d1d1f] to-[#434345] p-2.5 rounded-xl shadow-lg">
-                        <FaHardHat size={20} className="text-[#E8A33D]" />
+            <aside className="w-64 bg-white/60 dark:bg-[#18181b]/60 backdrop-blur-2xl border-r border-gray-200/50 dark:border-white/5 transition-colors duration-300 flex flex-col hidden md:flex sticky top-0 h-screen shadow-[4px_0_24px_rgb(0,0,0,0.02)]">
+                <div className="p-6 flex items-center gap-3 border-b border-gray-200/50 dark:border-white/5">
+                    <div className="bg-gradient-to-br from-[#1d1d1f] to-[#434345] dark:from-white dark:to-gray-300 p-2.5 rounded-xl shadow-lg">
+                        <FaHardHat size={20} className="text-[#E8A33D] dark:text-[#E8A33D]" />
                     </div>
-                    <span className="text-lg font-semibold tracking-tight text-[#1d1d1f]">SiteWatch AI</span>
+                    <span className="text-lg font-semibold tracking-tight text-[#1d1d1f] dark:text-white">SiteWatch AI</span>
                 </div>
                 
                 <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-                    <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4 mt-2 px-3">Main Menu</div>
+                    <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4 mt-2 px-3">Main Menu</div>
                     {navItems.map((item) => (
                         <Link
                             key={item.name}
                             to={item.path}
                             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                                 activeTab === item.name 
-                                ? "bg-[#0066CC] text-white shadow-md shadow-[#0066CC]/20" 
-                                : "text-gray-600 hover:bg-black/5 hover:text-gray-900"
+                                ? "bg-[#0066CC] dark:bg-[#E8A33D] text-white dark:text-black shadow-md shadow-[#0066CC]/20 dark:shadow-[#E8A33D]/20" 
+                                : "text-gray-600 dark:text-gray-400 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
                             }`}
                         >
                             <span className={activeTab === item.name ? "opacity-100" : "opacity-70"}>{item.icon}</span>
@@ -266,7 +266,7 @@ const Reports = () => {
                 <div className="p-4 mt-auto">
                     <button 
                         onClick={handleLogout} 
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 hover:shadow-sm transition-all"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:shadow-sm transition-all"
                     >
                         <FaSignOutAlt />
                         Logout
@@ -276,12 +276,12 @@ const Reports = () => {
 
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col min-h-screen overflow-hidden relative">
-                <div className="absolute top-[-10%] right-[-5%] w-[400px] h-[400px] rounded-full bg-blue-400/10 blur-[100px] pointer-events-none" />
+                <div className="absolute top-[-10%] right-[-5%] w-[400px] h-[400px] rounded-full bg-blue-400/10 dark:bg-[#E8A33D]/5 blur-[100px] pointer-events-none" />
                 
-                <header className="h-20 bg-white/40 backdrop-blur-xl border-b border-gray-200/50 flex items-center justify-between px-8 sticky top-0 z-10">
+                <header className="h-20 bg-white/40 dark:bg-[#18181b]/40 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/5 transition-colors duration-300 dark:border-white/5 flex items-center justify-between px-8 sticky top-0 z-10">
                     <div>
-                        <h1 className="text-2xl font-semibold text-[#1d1d1f] tracking-tight">{activeTab}</h1>
-                        <p className="text-sm text-gray-500 font-medium">Export and schedule automated reports</p>
+                        <h1 className="text-2xl font-semibold text-[#1d1d1f] dark:text-white tracking-tight">{activeTab}</h1>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Export and schedule automated reports</p>
                     </div>
                 </header>
 
@@ -296,7 +296,7 @@ const Reports = () => {
                                     className={`w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-all ${
                                         selectedTab === tab.id
                                         ? "bg-[#0066CC] text-white shadow-lg shadow-blue-500/20 transform scale-[1.02]"
-                                        : "bg-white/60 hover:bg-white text-gray-600 hover:text-[#1d1d1f] border border-transparent hover:border-gray-200"
+                                        : "bg-white/60 hover:bg-white text-gray-600 dark:text-gray-400 hover:text-[#1d1d1f] dark:text-white border border-transparent hover:border-gray-200"
                                     }`}
                                 >
                                     <div className={selectedTab === tab.id ? "text-white" : "text-[#0066CC]"}>
@@ -308,7 +308,7 @@ const Reports = () => {
                         </div>
 
                         {/* Tab Content */}
-                        <div className="w-full md:w-2/3 bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8">
+                        <div className="w-full md:w-2/3 bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8">
                             {reportTypes.map((tab) => (
                                 selectedTab === tab.id && (
                                     <div key={tab.id} className="h-full flex flex-col animate-in fade-in slide-in-from-right-4 duration-500">
@@ -317,7 +317,7 @@ const Reports = () => {
                                                 {tab.icon}
                                             </div>
                                             <div>
-                                                <h2 className="text-2xl font-bold text-[#1d1d1f] tracking-tight">{tab.title}</h2>
+                                                <h2 className="text-2xl font-bold text-[#1d1d1f] dark:text-white tracking-tight">{tab.title}</h2>
                                                 <p className="text-gray-500 mt-1">{tab.desc}</p>
                                             </div>
                                         </div>

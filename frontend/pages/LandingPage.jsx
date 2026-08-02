@@ -7,7 +7,8 @@ import {
   BarChart3, 
   Cloud, 
   Users,
-  Building2
+  Building2,
+  ArrowRight
 } from 'lucide-react';
 import { FaHardHat } from 'react-icons/fa';
 
@@ -32,130 +33,130 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0F1115] font-sans text-gray-200 selection:bg-[#E8A33D] selection:text-black">
+    <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0F1115] font-sans text-[#1D1D1F] dark:text-gray-200 selection:bg-[#E8A33D] selection:text-white transition-colors duration-300">
       
-      {/* Background Image Setup */}
-      <div 
-        className="fixed inset-0 z-0 opacity-40 bg-cover bg-center bg-no-repeat pointer-events-none"
-        style={{ backgroundImage: "url('/hero-bg.jpg')" }}
-      />
-      {/* Gradient Overlay for text readability */}
-      <div className="fixed inset-0 z-0 bg-gradient-to-r from-[#0F1115] via-[#0F1115]/90 to-transparent pointer-events-none" />
-      <div className="fixed inset-0 z-0 bg-gradient-to-t from-[#0F1115] via-transparent to-transparent pointer-events-none" />
-
-
       {/* Navigation */}
       <PublicNavbar />
 
-      {/* Main Hero Content */}
-      <main className="relative z-10 max-w-[1400px] mx-auto px-8 pt-20 pb-32">
-        <div className="max-w-2xl">
-          <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-[4rem] leading-[1.1] font-bold text-white mb-6 tracking-tight"
-          >
-            Smarter Sites. <br />
-            Safer Workers. <br />
-            <span className="text-[#E8A33D]">Stronger Projects.</span>
-          </motion.h1>
+      {/* Hero Image Block */}
+      <div className="w-full max-w-[1400px] mx-auto px-4 md:px-8 pt-4">
+        <div 
+          className="w-full h-[40vh] md:h-[55vh] bg-cover bg-center bg-no-repeat grayscale relative rounded-t-sm"
+          style={{ backgroundImage: "url('/hero-bg.jpg')" }}
+        >
+           {/* Subtle gradient overlay to make the image slightly softer */}
+           <div className="absolute inset-0 bg-black/10 dark:bg-black/40"></div>
+        </div>
+      </div>
 
-          <motion.p 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="text-lg text-gray-400 mb-10 max-w-xl leading-relaxed"
-          >
-            SiteWatchAI uses advanced AI to monitor construction sites in real time, detect risks, and ensure safety compliance—so you can build with confidence.
-          </motion.p>
+      {/* Main Hero Content Block */}
+      <main className="relative z-10 w-full max-w-[1400px] mx-auto px-4 md:px-8">
+        <div className="bg-white dark:bg-white/5 px-8 md:px-16 py-12 md:py-20 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-gray-100 dark:border-white/10 flex flex-col md:flex-row justify-between items-start gap-12 backdrop-blur-md">
+          
+          <div className="max-w-3xl">
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="text-[3.5rem] md:text-[5.5rem] leading-[1.05] font-serif text-[#1D1D1F] dark:text-white mb-12 tracking-tight uppercase"
+            >
+              Smarter Sites.<br />
+              Safer Workers.<br />
+              <span className="text-[#E8A33D]">Stronger Projects.</span>
+            </motion.h1>
 
-          <motion.button 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-            onClick={() => navigate('/pricing')}
-            className="bg-[#E8A33D] hover:bg-[#d99636] text-black font-semibold py-4 px-8 rounded-xl flex items-center gap-3 transition-transform hover:scale-105 shadow-[0_0_20px_rgba(232,163,61,0.3)] mb-10"
-          >
-            <ShieldCheck className="h-5 w-5" />
-            AI-Powered Construction Monitoring
-          </motion.button>
+            <motion.button 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              onClick={() => navigate('/pricing')}
+              className="group border border-gray-300 dark:border-white/20 text-[#1D1D1F] dark:text-white hover:bg-[#1D1D1F] dark:hover:bg-white hover:text-white dark:hover:text-black text-xs font-semibold py-4 px-8 tracking-widest uppercase transition-all duration-300 flex items-center gap-3"
+            >
+              AI-Powered Construction Monitoring
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </motion.button>
+          </div>
 
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1, delay: 0.8 }}
-            className="flex items-center gap-8 text-sm font-medium text-gray-300"
-          >
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-green-400" /> Real-time Detection
-            </div>
-            <div className="flex items-center gap-2">
-              <Bell className="h-4 w-4 text-green-400" /> Instant Alerts
-            </div>
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-green-400" /> Actionable Insights
-            </div>
-          </motion.div>
+          <div className="md:max-w-xs md:pt-4">
+             <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="text-base text-gray-600 dark:text-gray-400 leading-relaxed"
+            >
+              SiteWatchAI uses advanced AI to monitor construction sites in real time, detect risks, and ensure safety compliance—so you can build with confidence.
+            </motion.p>
+            
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1, delay: 0.8 }}
+              className="mt-10 space-y-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+            >
+              <div className="flex items-center gap-3">
+                <ShieldCheck className="h-4 w-4 text-[#E8A33D]" /> Real-time Detection
+              </div>
+              <div className="flex items-center gap-3">
+                <Bell className="h-4 w-4 text-[#E8A33D]" /> Instant Alerts
+              </div>
+              <div className="flex items-center gap-3">
+                <BarChart3 className="h-4 w-4 text-[#E8A33D]" /> Compliance Reports
+              </div>
+            </motion.div>
+          </div>
+
         </div>
       </main>
 
-      {/* Bottom Features Glass Bar */}
-      <div className="relative z-10 max-w-[1400px] mx-auto px-8 pb-12">
+      {/* Features Section */}
+      <div className="relative z-10 max-w-[1400px] mx-auto px-4 md:px-8 py-20">
         <motion.div 
           initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.6 }}
-          className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 grid grid-cols-1 md:grid-cols-4 gap-8"
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+          className="grid grid-cols-1 md:grid-cols-4 gap-6"
         >
-          <div className="flex items-start gap-4">
-            <div className="mt-1">
-              <ShieldCheck className="h-8 w-8 text-[#E8A33D]" />
-            </div>
-            <div>
-              <h4 className="text-white font-semibold mb-1">Boost Site Safety</h4>
-              <p className="text-xs text-gray-400">Detect hazards and prevent incidents before they happen.</p>
-            </div>
+          <div className="bg-white dark:bg-white/5 p-8 border border-gray-100 dark:border-white/10 shadow-[0_4px_20px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-shadow">
+            <ShieldCheck className="h-8 w-8 text-[#E8A33D] mb-5" />
+            <h4 className="text-[#1D1D1F] dark:text-white font-serif text-xl mb-3 tracking-tight">Boost Site Safety</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Detect hazards and prevent incidents before they happen.</p>
           </div>
-          <div className="flex items-start gap-4">
-            <div className="mt-1">
-              <Users className="h-8 w-8 text-[#E8A33D]" />
-            </div>
-            <div>
-              <h4 className="text-white font-semibold mb-1">Ensure Compliance</h4>
-              <p className="text-xs text-gray-400">Stay compliant with safety regulations and standards.</p>
-            </div>
+          <div className="bg-white dark:bg-white/5 p-8 border border-gray-100 dark:border-white/10 shadow-[0_4px_20px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-shadow">
+            <Users className="h-8 w-8 text-[#E8A33D] mb-5" />
+            <h4 className="text-[#1D1D1F] dark:text-white font-serif text-xl mb-3 tracking-tight">Ensure Compliance</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Stay compliant with safety regulations and standards.</p>
           </div>
-          <div className="flex items-start gap-4">
-            <div className="mt-1">
-              <Cloud className="h-8 w-8 text-[#E8A33D]" />
-            </div>
-            <div>
-              <h4 className="text-white font-semibold mb-1">Cloud-Based Platform</h4>
-              <p className="text-xs text-gray-400">Access your site data anytime, anywhere.</p>
-            </div>
+          <div className="bg-white dark:bg-white/5 p-8 border border-gray-100 dark:border-white/10 shadow-[0_4px_20px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-shadow">
+            <Cloud className="h-8 w-8 text-[#E8A33D] mb-5" />
+            <h4 className="text-[#1D1D1F] dark:text-white font-serif text-xl mb-3 tracking-tight">Cloud Platform</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Access your site data anytime, anywhere.</p>
           </div>
-          <div className="flex items-start gap-4">
-            <div className="mt-1">
-              <BarChart3 className="h-8 w-8 text-[#E8A33D]" />
-            </div>
-            <div>
-              <h4 className="text-white font-semibold mb-1">Data-Driven Decisions</h4>
-              <p className="text-xs text-gray-400">Get detailed reports and insights to improve productivity.</p>
-            </div>
+          <div className="bg-white dark:bg-white/5 p-8 border border-gray-100 dark:border-white/10 shadow-[0_4px_20px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-shadow">
+            <BarChart3 className="h-8 w-8 text-[#E8A33D] mb-5" />
+            <h4 className="text-[#1D1D1F] dark:text-white font-serif text-xl mb-3 tracking-tight">Data Decisions</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Get detailed reports and insights to improve productivity.</p>
           </div>
         </motion.div>
       </div>
 
       {/* Static CTA Section */}
-      <div className="relative z-10 flex justify-center py-24 px-8 border-t border-white/5 bg-[#0F1115]/50 backdrop-blur-sm">
-        <motion.button 
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => navigate('/pricing')}
-          className="bg-[#E8A33D] hover:bg-[#d99636] text-black font-bold py-5 px-12 rounded-full flex items-center gap-3 shadow-[0_10px_30px_rgba(232,163,61,0.4)] transition-all text-lg"
+      <div className="relative z-10 flex flex-col items-center justify-center py-32 px-8 border-t border-gray-200 dark:border-white/10 bg-white dark:bg-[#0F1115] transition-colors duration-300">
+        <motion.h2 
+           whileInView={{ opacity: 1, y: 0 }}
+           initial={{ opacity: 0, y: 20 }}
+           transition={{ duration: 0.6 }}
+           className="text-3xl md:text-5xl font-serif text-[#1D1D1F] dark:text-white mb-12 text-center tracking-tight"
         >
-          <Building2 className="h-6 w-6" />
+          Ready to build with confidence?
+        </motion.h2>
+        <motion.button 
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => navigate('/pricing')}
+          className="bg-[#E8A33D] hover:bg-[#d99636] text-white font-bold py-4 px-10 rounded-sm flex items-center gap-3 shadow-[0_10px_30px_rgba(232,163,61,0.3)] transition-all text-sm uppercase tracking-widest"
+        >
+          <Building2 className="h-5 w-5" />
           Set up your organization
         </motion.button>
       </div>

@@ -39,7 +39,7 @@ export default function Features() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0F1115] font-sans text-gray-200">
+    <div className="min-h-screen flex flex-col bg-[#F8F9FA] dark:bg-[#0F1115] font-sans text-[#1D1D1F] dark:text-gray-200 selection:bg-[#E8A33D] selection:text-white transition-colors duration-300">
       <PublicNavbar />
 
       <main className="flex-grow max-w-[1400px] mx-auto px-8 py-20 text-center w-full">
@@ -48,8 +48,8 @@ export default function Features() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <h1 className="text-5xl font-bold text-white mb-6">Powerful AI Features</h1>
-          <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-16">
+          <h1 className="text-5xl md:text-6xl font-serif text-[#1D1D1F] dark:text-white mb-6 tracking-tight uppercase">Powerful AI Features</h1>
+          <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-16">
             Discover the powerful AI-driven capabilities that keep your construction sites safe, compliant, and efficient.
           </p>
         </motion.div>
@@ -61,13 +61,13 @@ export default function Features() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: idx * 0.1 }}
-              className="bg-white/5 border border-white/10 p-8 rounded-2xl hover:bg-white/10 transition-colors duration-300"
+              className="bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 p-8 shadow-[0_4px_20px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:hover:bg-white/10 transition-shadow transition-colors duration-300"
             >
-              <div className="mb-6 bg-black/30 p-4 rounded-full inline-block">
+              <div className="mb-6 bg-[#F8F9FA] dark:bg-black/30 border border-gray-100 dark:border-transparent p-4 inline-block">
                 {feature.icon}
               </div>
-              <h3 className="text-2xl font-bold text-white mb-4">{feature.title}</h3>
-              <p className="text-gray-400 leading-relaxed">{feature.desc}</p>
+              <h3 className="text-2xl font-serif text-[#1D1D1F] dark:text-white mb-4 tracking-tight">{feature.title}</h3>
+              <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{feature.desc}</p>
             </motion.div>
           ))}
         </div>

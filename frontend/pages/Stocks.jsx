@@ -220,7 +220,7 @@ const Stocks=()=>{
                                 </div>
                             )}
                             {stock.image_url && (
-                                <img src={`${apiUrl}${stock.image_url}`} alt={stock.item_name} className="w-full h-40 object-cover rounded-xl mb-4" />
+                                <img src={stock.image_url.startsWith('data:image') ? stock.image_url : `${apiUrl}${stock.image_url}`} alt={stock.item_name} className="w-full h-40 object-cover rounded-xl mb-4" />
                             )}
                             <div className="flex justify-between items-start mb-2">
                                 <h3 className="text-xl font-bold text-gray-900 dark:text-gray-200">{stock.item_name}</h3>

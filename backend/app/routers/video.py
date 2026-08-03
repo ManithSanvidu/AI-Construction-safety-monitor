@@ -262,7 +262,11 @@ async def stream_video_url(url: str):
         raise HTTPException(status_code=400, detail="URL is required")
         
     try:
-        return StreamingResponse(generate_frames(url), media_type="multipart/x-mixed-replace; boundary=frame")
+        return StreamingResponse(
+            generate_frames(url), 
+            media_type="multipart/x-mixed-replace; boundary=frame",
+            headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"}
+        )
     except RuntimeError as e:
         raise HTTPException(status_code=429, detail=str(e))
 
@@ -288,6 +292,10 @@ async def stream_video(filename: str):
         # Note: In FastAPI, StreamingResponse consumes the generator directly.
         # If a RuntimeError is raised inside generate_frames *before* yielding, 
         # it might bubble up, but usually it happens when consumed.
-        return StreamingResponse(generate_frames(file_path), media_type="multipart/x-mixed-replace; boundary=frame")
+        return StreamingResponse(
+            generate_frames(file_path), 
+            media_type="multipart/x-mixed-replace; boundary=frame",
+            headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"}
+        )
     except RuntimeError as e:
         raise HTTPException(status_code=429, detail=str(e))

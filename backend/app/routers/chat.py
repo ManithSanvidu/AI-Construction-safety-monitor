@@ -59,6 +59,9 @@ async def chat_with_ai(request:ChatRequest):
     try:
         # Dynamically load and strip quotes from API key to prevent Render formatting errors
         api_key = os.getenv("GEMINI_API_KEY", "").strip('"').strip("'")
+        if not api_key:
+            return {"response": "The AI assistant is currently unavailable because the API key is not configured on the server."}
+        
         genai.configure(api_key=api_key)
         
         context=get_project_context()

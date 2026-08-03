@@ -1,6 +1,4 @@
 import os
-import json
-import requests
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.database import db
@@ -59,28 +57,21 @@ async def chat_with_ai(request:ChatRequest):
         if not api_key:
             return {"response": "The AI assistant is currently unavailable because the API key is not configured on the server."}
         
+        # Pop GCP default credentials so google-genai doesn't try to use OAuth
+        if "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
+            os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS")
+            
+        from google import genai
+        client = genai.Client(api_key=api_key)
+        
         context=get_project_context()
         prompt = f"{context}\n\nUser Question: {request.message}\nAssistant Answer:"
-
-        # Use REST API directly to avoid any GCP default credential interference on Render
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-        headers = {"Content-Type": "application/json"}
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}]
-        }
         
-        import asyncio
-        response = await asyncio.to_thread(requests.post, url, headers=headers, json=payload, timeout=30)
-        
-        if response.status_code != 200:
-            raise Exception(f"API Error {response.status_code}: {response.text}")
-            
-        result = response.json()
-        try:
-            answer = result["candidates"][0]["content"]["parts"][0]["text"]
-            return {"response": answer.strip()}
-        except (KeyError, IndexError) as e:
-            raise Exception(f"Unexpected API response format: {json.dumps(result)}")
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt
+        )
+        return {"response": response.text.strip()}
 
     except Exception as e:
         print(f"Chatbot Error:{e}")

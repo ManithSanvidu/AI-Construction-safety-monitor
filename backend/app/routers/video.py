@@ -2,43 +2,27 @@ import os
 import shutil
 import cv2
 import asyncio
+import time
+import uuid
+import datetime
 from fastapi import APIRouter, UploadFile, File, HTTPException
-from fastapi.responses import StreamingResponse
 from ultralytics import YOLO
 import torch
 import threading
-import datetime
 from app.database import db
 
-import gridfs
-from bson import ObjectId
+import cloudinary
+import cloudinary.uploader
+from cloudinary.utils import cloudinary_url
 
 router = APIRouter(prefix="/api/video", tags=["video"])
 
+# Use a temporary directory for processing
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads", "videos")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Initialize GridFS for persistent video storage across Render restarts
-fs = gridfs.GridFS(db)
-
-# Limit OpenCV threads to prevent memory explosion during concurrent FFmpeg decoding
-cv2.setNumThreads(1) 
-
 # Global thread lock for YOLO ML inference
 model_lock = threading.Lock()
-
-# Global state to prevent multiple OpenCV instances from opening the same file concurrently
-active_streams = set()
-
-# Global state to hold real-time incidents
-current_video_stats = {
-    "workers": 0,
-    "helmets": 0,
-    "vests": 0,
-    "incidents": [],
-    "total_incidents": 0,
-    "compliance_score": 100
-}
 
 # We will lazy-load the model to avoid blocking startup
 _model = None
@@ -60,242 +44,172 @@ def get_model():
         _model = YOLO(model_path)
     return _model
 
+def process_video_locally(input_path: str, output_path: str, model):
+    """Processes the video entirely locally and returns the detection summary."""
+    cap = cv2.VideoCapture(input_path)
+    if not cap.isOpened():
+        raise RuntimeError("Error opening video file")
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    if fps == 0 or fps != fps:
+        fps = 30.0
+        
+    width = 960
+    height = 540
+    
+    # Use mp4v codec for output. Cloudinary will transcode it for web compatibility.
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+    
+    summary = {
+        "max_workers": 0,
+        "max_helmets": 0,
+        "max_vests": 0,
+        "total_incidents": 0,
+        "compliance_score": 100,
+        "incidents_list": []
+    }
+    
+    frame_count = 0
+    total_expected = 0
+    total_found = 0
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+            
+        frame_count += 1
+        frame = cv2.resize(frame, (width, height))
+        
+        # Run the custom PPE model! Filter out class 4 (NO VEST) to prevent false positives
+        allowed_classes = [k for k in model.names.keys() if k != 4]
+        with model_lock:
+            results = model(frame, conf=0.35, verbose=False, classes=allowed_classes)
+        
+        worker_count = 0
+        helmet_count = 0
+        vest_count = 0
+        
+        for box in results[0].boxes:
+            cls_id = int(box.cls[0])
+            if cls_id == 5:
+                worker_count += 1
+            elif cls_id == 0:
+                helmet_count += 1
+            elif cls_id == 7:
+                vest_count += 1
+                
+        # Update maximums seen in the video
+        summary["max_workers"] = max(summary["max_workers"], worker_count)
+        summary["max_helmets"] = max(summary["max_helmets"], helmet_count)
+        summary["max_vests"] = max(summary["max_vests"], vest_count)
+        
+        total_expected += worker_count * 2
+        total_found += helmet_count + vest_count
+
+        no_helmet = max(0, worker_count - helmet_count)
+        no_vest = max(0, worker_count - vest_count)
+        
+        if no_helmet > 0 or no_vest > 0:
+            if no_helmet > 0:
+                summary["incidents_list"].append({"type": "No Helmet", "frame": frame_count, "count": no_helmet})
+                summary["total_incidents"] += no_helmet
+            if no_vest > 0:
+                summary["incidents_list"].append({"type": "No Safety Vest", "frame": frame_count, "count": no_vest})
+                summary["total_incidents"] += no_vest
+
+        # Draw annotations and write to output
+        annotated_frame = results[0].plot()
+        out.write(annotated_frame)
+        
+    cap.release()
+    out.release()
+    
+    # Calculate overall compliance
+    if total_expected > 0:
+        summary["compliance_score"] = round((total_found / total_expected) * 100, 1)
+        
+    return summary
+
 @router.post("/upload")
 async def upload_video(file: UploadFile = File(...)):
     if not file.filename.endswith(('.mp4', '.avi', '.mov', '.mkv')):
         raise HTTPException(status_code=400, detail="Invalid video format")
     
-    # Read the file data asynchronously
-    contents = await file.read()
+    start_time = time.time()
+    file_id = str(uuid.uuid4())
     
-    # Write file to GridFS to persist across Render server restarts
-    def upload_to_gridfs():
-        # Delete existing file with same name if any
-        existing_file = fs.find_one({"filename": file.filename})
-        if existing_file:
-            fs.delete(existing_file._id)
-        
-        # Save to GridFS permanently
-        fs.put(contents, filename=file.filename)
-        
-        # Also cache it locally for immediate processing
-        file_path = os.path.abspath(os.path.join(UPLOAD_DIR, file.filename))
-        with open(file_path, "wb") as buffer:
+    temp_original = os.path.join(UPLOAD_DIR, f"{file_id}_original.mp4")
+    temp_processed = os.path.join(UPLOAD_DIR, f"{file_id}_processed.mp4")
+    
+    try:
+        # 1. Save locally for processing
+        contents = await file.read()
+        with open(temp_original, "wb") as buffer:
             buffer.write(contents)
-            buffer.flush()
-            os.fsync(buffer.fileno())
             
-    import asyncio
-    await asyncio.to_thread(upload_to_gridfs)
+        # 2. Upload original to Cloudinary
+        def upload_original():
+            return cloudinary.uploader.upload(temp_original, resource_type="video")
         
-    return {"status": "success", "filename": file.filename, "message": "Video uploaded successfully"}
-
-def process_frame_sync(model, frame):
-    """Synchronous CPU-bound wrapper to be run in a threadpool."""
-    frame = cv2.resize(frame, (960, 540))
-    
-    # Run the custom PPE model! Filter out class 4 (NO VEST) to prevent false positives
-    allowed_classes = [k for k in model.names.keys() if k != 4]
-    with model_lock:
-        results = model(frame, conf=0.35, verbose=False, classes=allowed_classes)
-    
-    # Extract real-time stats
-    worker_count = 0
-    helmet_count = 0
-    vest_count = 0
-    
-    for box in results[0].boxes:
-        cls_id = int(box.cls[0])
-        if cls_id == 5:
-            worker_count += 1
-        elif cls_id == 0:
-            helmet_count += 1
-        elif cls_id == 7:
-            vest_count += 1
-
-    # Infer missing PPE based on counts
-    no_helmet = max(0, worker_count - helmet_count)
-    no_vest = max(0, worker_count - vest_count)
-    
-    frame_incidents = []
-    if no_helmet > 0:
-        frame_incidents.append({"type": "No Helmet", "count": no_helmet, "status": "Pending"})
-    if no_vest > 0:
-        frame_incidents.append({"type": "No Safety Vest", "count": no_vest, "status": "Pending"})
-
-    stats = {
-        "workers": worker_count,
-        "helmets": helmet_count,
-        "vests": vest_count,
-        "frame_incidents": frame_incidents
-    }
-    
-    # The plot() method draws all the bounding boxes and labels for the custom classes automatically
-    annotated_frame = results[0].plot()
+        original_upload = await asyncio.to_thread(upload_original)
+        original_url = original_upload.get("secure_url")
+        
+        # 3. Process video locally
+        model = get_model()
+        summary = await asyncio.to_thread(process_video_locally, temp_original, temp_processed, model)
+        
+        # 4. Upload processed video to Cloudinary
+        def upload_processed():
+            return cloudinary.uploader.upload(temp_processed, resource_type="video")
             
-    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 70]
-    ret, buffer = cv2.imencode('.jpg', annotated_frame, encode_param)
-    return ret, buffer, stats
-
-async def generate_frames(video_path: str):
-    # Concurrency lock
-    if video_path in active_streams:
-        # If the file is already being processed, wait up to 10 seconds to see if it frees up 
-        # (happens during React strict mode double mounting where the first request is cancelled
-        # but the thread takes a few seconds to release the lock)
-        for _ in range(100):
-            await asyncio.sleep(0.1)
-            if video_path not in active_streams:
-                break
-        else:
-            raise RuntimeError("Stream already active for this video")
-            
-    active_streams.add(video_path)
-
-    model = get_model()
-    
-    # Run VideoCapture in a thread to prevent blocking. 
-    # Force FFmpeg backend on Windows to avoid MSMF 'moov atom not found' issues.
-    cap = await asyncio.to_thread(cv2.VideoCapture, video_path, cv2.CAP_FFMPEG)
-    
-    if not cap.isOpened():
-        active_streams.discard(video_path)
-        raise RuntimeError("Error opening video file. Is the video format supported?")
-
-    try:
-        def read_and_process_sync():
-            ret, frame = cap.read()
-            if not ret:
-                return False, None, None
-            result = process_frame_sync(model, frame)
-            del frame
-            return result
-            
-        while True:
-            # Offload heavy I/O and ML processing to background threadpool
-            # This is CRITICAL to keep FastAPI event loop free for disconnect detection
-            ret, buffer, stats = await asyncio.to_thread(read_and_process_sync)
-            if not ret:
-                break
-            
-            if buffer is None:
-                continue
-                
-            # Update global state
-            global current_video_stats
-            
-            # Create unique incidents for the table, capped at some max so it doesn't grow infinitely
-            new_incidents = []
-            db_incidents_to_insert = []
-            for inc in stats["frame_incidents"]:
-                inc_doc = {
-                    "type": inc["type"],
-                    "location": "Live Video",
-                    "status": inc["status"],
-                    "timestamp": datetime.datetime.utcnow()
-                }
-                new_incidents.append({
-                    "id": current_video_stats["total_incidents"] + len(new_incidents) + 1,
-                    "type": inc["type"],
-                    "location": "Live Video",
-                    "status": inc["status"]
-                })
-                db_incidents_to_insert.append(inc_doc)
-                
-            if db_incidents_to_insert:
-                # Insert incidents asynchronously
-                asyncio.create_task(asyncio.to_thread(db.incidents.insert_many, db_incidents_to_insert))
-            
-            # Simple compliance score calculation
-            total_ppe_expected = stats["workers"] * 2
-            total_ppe_found = stats["helmets"] + stats["vests"]
-            compliance = 100
-            if total_ppe_expected > 0:
-                compliance = round((total_ppe_found / total_ppe_expected) * 100, 1)
-
-            current_video_stats = {
-                "workers": stats["workers"],
-                "helmets": stats["helmets"],
-                "vests": stats["vests"],
-                "incidents": (new_incidents + current_video_stats["incidents"])[:20], # Keep last 20
-                "total_incidents": current_video_stats["total_incidents"] + len(new_incidents),
-                "compliance_score": compliance
-            }
-            
-            # Save metrics snapshot periodically (e.g. 1 in ~50 frames)
-            if getattr(generate_frames, "frame_count", 0) % 50 == 0:
-                asyncio.create_task(asyncio.to_thread(db.metrics.insert_one, {
-                    "workers": stats["workers"],
-                    "helmets": stats["helmets"],
-                    "vests": stats["vests"],
-                    "compliance_score": compliance,
-                    "timestamp": datetime.datetime.utcnow()
-                }))
-            generate_frames.frame_count = getattr(generate_frames, "frame_count", 0) + 1
-                
-            frame_bytes = buffer.tobytes()
-            
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-            
-            # Yield control back to event loop to allow cancellation detection and throttle the frame rate
-            # Sleep for 0.06s to cap at ~15 FPS. This prevents the browser from being overwhelmed 
-            # and throwing ERR_INSUFFICIENT_RESOURCES on low-memory machines.
-            await asyncio.sleep(0.06)
-            
-    except asyncio.CancelledError:
-        # Client gracefully disconnected
-        pass
+        processed_upload = await asyncio.to_thread(upload_processed)
+        processed_url = processed_upload.get("secure_url")
+        
+        processing_time = round(time.time() - start_time, 2)
+        
+        # 5. Save to MongoDB
+        doc = {
+            "filename": file.filename,
+            "original_video_url": original_url,
+            "processed_video_url": processed_url,
+            "upload_date": datetime.datetime.utcnow(),
+            "detection_summary": summary,
+            "processing_time": processing_time
+        }
+        
+        # Insert asynchronously
+        await asyncio.to_thread(db.video_analysis.insert_one, doc)
+        
+        # Convert ObjectId to string for JSON serialization
+        doc["_id"] = str(doc["_id"])
+        
+        return {
+            "status": "success",
+            "message": "Video processed and uploaded successfully",
+            "data": doc
+        }
+        
     except Exception as e:
-        print(f"Error during video stream: {e}")
+        print(f"Error processing video: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+        
     finally:
-        cap.release()
-        active_streams.discard(video_path)
+        # 6. Delete temporary local files
+        if os.path.exists(temp_original):
+            os.remove(temp_original)
+        if os.path.exists(temp_processed):
+            os.remove(temp_processed)
 
-@router.get("/incidents")
-async def get_video_incidents():
-    return current_video_stats
-
-@router.get("/stream")
-async def stream_video_url(url: str):
-    if not url:
-        raise HTTPException(status_code=400, detail="URL is required")
+@router.get("/history")
+async def get_video_history():
+    """Returns past processed videos from MongoDB."""
+    def fetch_history():
+        videos = list(db.video_analysis.find().sort("upload_date", -1).limit(10))
+        for v in videos:
+            v["_id"] = str(v["_id"])
+        return videos
         
-    try:
-        return StreamingResponse(
-            generate_frames(url), 
-            media_type="multipart/x-mixed-replace; boundary=frame",
-            headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"}
-        )
-    except RuntimeError as e:
-        raise HTTPException(status_code=429, detail=str(e))
-
-@router.get("/stream/{filename}")
-async def stream_video(filename: str):
-    file_path = os.path.join(UPLOAD_DIR, filename)
-    
-    def ensure_local_file():
-        if not os.path.exists(file_path):
-            existing_file = fs.find_one({"filename": filename})
-            if not existing_file:
-                raise FileNotFoundError()
-            with open(file_path, "wb") as f:
-                f.write(existing_file.read())
-                
-    import asyncio
-    try:
-        await asyncio.to_thread(ensure_local_file)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Video not found")
-        
-    try:
-        # Note: In FastAPI, StreamingResponse consumes the generator directly.
-        # If a RuntimeError is raised inside generate_frames *before* yielding, 
-        # it might bubble up, but usually it happens when consumed.
-        return StreamingResponse(
-            generate_frames(file_path), 
-            media_type="multipart/x-mixed-replace; boundary=frame",
-            headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"}
-        )
-    except RuntimeError as e:
-        raise HTTPException(status_code=429, detail=str(e))
+    history = await asyncio.to_thread(fetch_history)
+    return {"status": "success", "data": history}

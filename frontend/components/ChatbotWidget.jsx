@@ -41,7 +41,15 @@ const ChatbotWidget = () => {
                 body: JSON.stringify({ message: userMessage })
             });
 
-            if (!res.ok) throw new Error("Failed to get response");
+            if (!res.ok) {
+                let errData;
+                try {
+                    errData = await res.json();
+                } catch(e) {
+                    throw new Error(`Server error: ${res.status}`);
+                }
+                throw new Error(errData.detail || "Failed to get response");
+            }
             
             const data = await res.json();
             setMessages(prev => [...prev, { text: data.response, isBot: true }]);

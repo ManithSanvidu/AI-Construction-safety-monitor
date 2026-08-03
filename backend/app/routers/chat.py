@@ -1,13 +1,10 @@
 import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-import google.generativeai as genai
+from google import genai
 from app.database import db
 
 router=APIRouter(prefix="/api/chat",tags=["chat"])
-
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model=genai.GenerativeModel('gemini-1.5-flash')
 
 class ChatRequest(BaseModel):
     message:str
@@ -57,18 +54,20 @@ def get_project_context():
 @router.post("/")
 async def chat_with_ai(request:ChatRequest):
     try:
-        # Dynamically load and strip quotes from API key to prevent Render formatting errors
         api_key = os.getenv("GEMINI_API_KEY", "").strip('"').strip("'")
         if not api_key:
             return {"response": "The AI assistant is currently unavailable because the API key is not configured on the server."}
         
-        genai.configure(api_key=api_key)
+        client = genai.Client(api_key=api_key)
         
         context=get_project_context()
 
         prompt = f"{context}\n\nUser Question: {request.message}\nAssistant Answer:"
 
-        response=model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-flash-latest',
+            contents=prompt
+        )
         return{"response":response.text.strip()}
 
     except Exception as e:

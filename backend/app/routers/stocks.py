@@ -141,13 +141,18 @@ async def request_stock(stock_id: str, worker_name: str = Form(...), quantity: i
             raise Exception("Twilio credentials missing")
 
         client=Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-        message=client.messages.create(
-            from_=TWILIO_WHATSAPP_SENDER,
-            body=f"⚠️ *STOCK ALERT* ⚠️\nWorker '{worker_name}' has requested *{quantity}x* stock for *{stock['item_name']}* (ID: {stock['stock_id']}).\nStatus marked as CRITICAL OUT OF STOCK.",
-            to=ADMIN_WHATSAPP_NUMBER
+        # Ensure correct WhatsApp prefix to prevent SMS routing or failures
+        to_number = ADMIN_WHATSAPP_NUMBER if ADMIN_WHATSAPP_NUMBER.startswith("whatsapp:") else f"whatsapp:{ADMIN_WHATSAPP_NUMBER}"
+        from_number = TWILIO_WHATSAPP_SENDER if TWILIO_WHATSAPP_SENDER.startswith("whatsapp:") else f"whatsapp:{TWILIO_WHATSAPP_SENDER}"
+        
+        whatsapp_body = f"⚠️ *STOCK ALERT* ⚠️\nWorker '{worker_name}' has requested *{quantity}x* stock for *{stock['item_name']}* (ID: {stock['stock_id']}).\nStatus marked as CRITICAL OUT OF STOCK."
+        
+        message = client.messages.create(
+            body=whatsapp_body,
+            from_=from_number,
+            to=to_number
         )
     except Exception as e:
         print(f"Failed to send WhatsApp message:{e}")
 
     return {"status":"success","message":"Request sent to Admin"}
-

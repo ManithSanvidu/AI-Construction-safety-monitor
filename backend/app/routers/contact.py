@@ -43,11 +43,15 @@ async def send_contact_message(data: ContactMessage):
             f"*Message:*\n{data.message}"
         )
         
+        # Ensure correct WhatsApp prefix to prevent SMS routing or failures
+        to_number = ADMIN_WHATSAPP_NUMBER if ADMIN_WHATSAPP_NUMBER.startswith("whatsapp:") else f"whatsapp:{ADMIN_WHATSAPP_NUMBER}"
+        from_number = TWILIO_WHATSAPP_SENDER if TWILIO_WHATSAPP_SENDER.startswith("whatsapp:") else f"whatsapp:{TWILIO_WHATSAPP_SENDER}"
+
         # Send message to admin
         message = client.messages.create(
             body=whatsapp_body,
-            from_=TWILIO_WHATSAPP_SENDER,
-            to=ADMIN_WHATSAPP_NUMBER
+            from_=from_number,
+            to=to_number
         )
         
         logger.info(f"WhatsApp message sent! SID: {message.sid}")

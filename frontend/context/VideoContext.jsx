@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import React, { createContext, useContext, useState } from "react";
 
 const VideoContext = createContext();
 
@@ -8,82 +8,20 @@ export const VideoProvider = ({ children }) => {
     const [videoData, setVideoData] = useState(null);
     const [statsData, setStatsData] = useState({ workers: 0, compliance_score: 100, total_incidents: 0 });
     const [incidentsData, setIncidentsData] = useState([]);
-    const [history, setHistory] = useState([]);
     
-    const imgRef = useRef(null);
-    const hiddenContainerRef = useRef(null);
-
-    // Polling logic for global stats
-    useEffect(() => {
-        let interval;
-        let isActive = true;
-        if (videoData) {
-            interval = setInterval(async () => {
-                try {
-                    let apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-                    apiUrl = apiUrl.replace(/\/+$/, '');
-                    const res = await fetch(`${apiUrl}/api/video/incidents`, {
-                        headers: {
-                            "ngrok-skip-browser-warning": "true"
-                        }
-                    });
-                    if (res.ok && isActive) {
-                        const data = await res.json();
-                        setStatsData({
-                            workers: data.workers,
-                            compliance_score: data.compliance_score,
-                            total_incidents: data.total_incidents
-                        });
-                        setIncidentsData(data.incidents || []);
-                        
-                        setHistory(prev => {
-                            const newHistory = [...prev, { 
-                                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }), 
-                                compliance: data.compliance_score 
-                            }];
-                            if (newHistory.length > 20) newHistory.shift();
-                            return newHistory;
-                        });
-                    }
-                } catch (e) {
-                    console.error("Failed to fetch incidents:", e);
-                }
-            }, 1000);
-        }
-        return () => {
-            isActive = false;
-            clearInterval(interval);
-        };
-    }, [videoData]);
-
-    let apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-    apiUrl = apiUrl.replace(/\/+$/, '');
-    const streamUrl = videoData 
-        ? (videoData.url 
-            ? `${apiUrl}/api/video/stream?url=${encodeURIComponent(videoData.url)}&t=${videoData.timestamp}`
-            : `${apiUrl}/api/video/stream/${encodeURIComponent(videoData.filename)}?t=${videoData.timestamp}`)
-        : null;
-
     const clearVideo = () => {
         setVideoData(null);
         setStatsData({ workers: 0, compliance_score: 100, total_incidents: 0 });
         setIncidentsData([]);
-        setHistory([]);
     };
 
     return (
         <VideoContext.Provider value={{ 
             videoData, setVideoData, 
-            statsData, incidentsData, history,
-            imgRef, hiddenContainerRef, clearVideo 
+            statsData, setStatsData,
+            incidentsData, setIncidentsData,
+            clearVideo 
         }}>
-            <div ref={hiddenContainerRef} style={{ display: 'none' }}>
-                <img 
-                    ref={imgRef}
-                    src={streamUrl || undefined} 
-                    alt="Background AI Stream" 
-                />
-            </div>
             {children}
         </VideoContext.Provider>
     );

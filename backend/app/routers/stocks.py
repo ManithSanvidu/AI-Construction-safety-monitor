@@ -42,11 +42,11 @@ async def add_stock(
 
     image_url = ""
 
-    if image:
-        file_path=os.path.join(UPLOAD_DIR,image.filename)
-        with open(file_path,"wb") as buffer:
-            shutil.copyfileobj(image.file,buffer)
-        image_url = f"/uploads/stocks/{image.filename}"
+    if image and image.filename:
+        import base64
+        contents = await image.read()
+        b64 = base64.b64encode(contents).decode("utf-8")
+        image_url = f"data:{image.content_type};base64,{b64}"
 
     stock_doc={
         "stock_id": f"STK-{int(datetime.utcnow().timestamp())}",
@@ -106,10 +106,10 @@ async def update_stock(
     }
 
     if image and image.filename:
-        file_path=os.path.join(UPLOAD_DIR,image.filename)
-        with open(file_path,"wb") as buffer:
-            shutil.copyfileobj(image.file,buffer)
-        update_data["image_url"]=f"/uploads/stocks/{image.filename}"
+        import base64
+        contents = await image.read()
+        b64 = base64.b64encode(contents).decode("utf-8")
+        update_data["image_url"]=f"data:{image.content_type};base64,{b64}"
 
     db.stocks.update_one({"_id":ObjectId(stock_id)},{"$set":update_data})
     return {"status":"success","message":"Stock updated"}
@@ -131,6 +131,15 @@ async def request_stock(stock_id: str, worker_name: str = Form(...), quantity: i
     )
 
     try:
+        # Dynamically fetch and strip accidental quotes from Render env vars
+        TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "").strip('"').strip("'")
+        TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "").strip('"').strip("'")
+        TWILIO_WHATSAPP_SENDER = os.getenv("TWILIO_WHATSAPP_SENDER", "").strip('"').strip("'")
+        ADMIN_WHATSAPP_NUMBER = os.getenv("ADMIN_WHATSAPP_NUMBER", "whatsapp:+94760429021").strip('"').strip("'")
+
+        if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_SENDER]):
+            raise Exception("Twilio credentials missing")
+
         client=Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
         message=client.messages.create(
             from_=TWILIO_WHATSAPP_SENDER,

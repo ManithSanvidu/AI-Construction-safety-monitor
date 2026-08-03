@@ -10,10 +10,16 @@ import threading
 import datetime
 from app.database import db
 
+import gridfs
+from bson import ObjectId
+
 router = APIRouter(prefix="/api/video", tags=["video"])
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads", "videos")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# Initialize GridFS for persistent video storage across Render restarts
+fs = gridfs.GridFS(db)
 
 # Limit OpenCV threads to prevent memory explosion during concurrent FFmpeg decoding
 cv2.setNumThreads(1) 
@@ -54,20 +60,28 @@ async def upload_video(file: UploadFile = File(...)):
     if not file.filename.endswith(('.mp4', '.avi', '.mov', '.mkv')):
         raise HTTPException(status_code=400, detail="Invalid video format")
     
-    file_path = os.path.abspath(os.path.join(UPLOAD_DIR, file.filename))
-    
     # Read the file data asynchronously
     contents = await file.read()
     
-    # Write file synchronously in a background thread to prevent corruption race conditions
-    def write_file():
+    # Write file to GridFS to persist across Render server restarts
+    def upload_to_gridfs():
+        # Delete existing file with same name if any
+        existing_file = fs.find_one({"filename": file.filename})
+        if existing_file:
+            fs.delete(existing_file._id)
+        
+        # Save to GridFS permanently
+        fs.put(contents, filename=file.filename)
+        
+        # Also cache it locally for immediate processing
+        file_path = os.path.abspath(os.path.join(UPLOAD_DIR, file.filename))
         with open(file_path, "wb") as buffer:
             buffer.write(contents)
             buffer.flush()
             os.fsync(buffer.fileno())
             
     import asyncio
-    await asyncio.to_thread(write_file)
+    await asyncio.to_thread(upload_to_gridfs)
         
     return {"status": "success", "filename": file.filename, "message": "Video uploaded successfully"}
 
@@ -250,7 +264,19 @@ async def stream_video_url(url: str):
 @router.get("/stream/{filename}")
 async def stream_video(filename: str):
     file_path = os.path.join(UPLOAD_DIR, filename)
-    if not os.path.exists(file_path):
+    
+    def ensure_local_file():
+        if not os.path.exists(file_path):
+            existing_file = fs.find_one({"filename": filename})
+            if not existing_file:
+                raise FileNotFoundError()
+            with open(file_path, "wb") as f:
+                f.write(existing_file.read())
+                
+    import asyncio
+    try:
+        await asyncio.to_thread(ensure_local_file)
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Video not found")
         
     try:

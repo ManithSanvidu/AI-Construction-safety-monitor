@@ -21,6 +21,12 @@ class ContactMessage(BaseModel):
 
 @router.post("/send")
 async def send_contact_message(data: ContactMessage):
+    # Dynamically fetch and strip accidental quotes from Render env vars
+    TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "").strip('"').strip("'")
+    TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "").strip('"').strip("'")
+    TWILIO_WHATSAPP_SENDER = os.getenv("TWILIO_WHATSAPP_SENDER", "").strip('"').strip("'")
+    ADMIN_WHATSAPP_NUMBER = os.getenv("ADMIN_WHATSAPP_NUMBER", "whatsapp:+94760429021").strip('"').strip("'")
+
     if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_SENDER]):
         logger.error("Twilio credentials are not fully configured.")
         raise HTTPException(status_code=500, detail="WhatsApp integration not configured on the server.")

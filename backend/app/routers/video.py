@@ -192,8 +192,11 @@ async def upload_video(file: UploadFile = File(...)):
         }
         
     except Exception as e:
-        print(f"Error processing video: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        traceback.print_exc()
+        if "api_key" in str(e).lower() or "must supply api_key" in str(e).lower():
+            raise HTTPException(status_code=500, detail="Cloudinary API key is missing. Please set CLOUDINARY_URL in Render environment variables.")
+        raise HTTPException(status_code=500, detail=f"Backend Error: {str(e)}")
         
     finally:
         # 6. Delete temporary local files

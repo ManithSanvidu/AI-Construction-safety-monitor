@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
     FaHardHat,
@@ -21,28 +21,15 @@ function Dashboard() {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState("Live Tracking");
     const [uploading, setUploading] = useState(false);
-    const { videoData, setVideoData, statsData, incidentsData, imgRef, hiddenContainerRef, clearVideo } = useVideo();
-    const dashboardContainerRef = useRef(null);
+    
+    // We now use Cloudinary video URL instead of live stream refs
+    const { videoData, setVideoData, statsData, setStatsData, incidentsData, setIncidentsData, clearVideo } = useVideo();
     const { user, logout } = useAuth();
     const isAdmin = user?.role === "admin";
 
-    useEffect(() => {
-        if (dashboardContainerRef.current && imgRef.current) {
-            dashboardContainerRef.current.appendChild(imgRef.current);
-            imgRef.current.style.display = 'block';
-            imgRef.current.className = 'w-full h-full object-contain';
-        }
-        return () => {
-            if (hiddenContainerRef.current && imgRef.current) {
-                hiddenContainerRef.current.appendChild(imgRef.current);
-                imgRef.current.style.display = 'none';
-            }
-        };
-    }, [videoData, imgRef, hiddenContainerRef, activeTab]);
-
     const statistics = [
         {
-            title: "Workers Detected",
+            title: "Max Workers Detected",
             value: statsData.workers,
             icon: <FaUserFriends size={28} />,
             color: "text-blue-500",
@@ -56,7 +43,7 @@ function Dashboard() {
             bg: "bg-green-500/10 dark:bg-green-500/20"
         },
         {
-            title: "Incidents Today",
+            title: "Incidents Detected",
             value: statsData.total_incidents,
             icon: <FaExclamationTriangle size={28} />,
             color: "text-red-500",
@@ -94,10 +81,31 @@ function Dashboard() {
 
             if (!response.ok) throw new Error("Upload failed");
             
-            const data = await response.json();
-            setVideoData({ filename: data.filename, timestamp: Date.now() });
+            const result = await response.json();
+            const doc = result.data;
+            
+            // Set Cloudinary URL for the video player
+            setVideoData({ url: doc.processed_video_url });
+            
+            // Set stats from batch detection summary
+            setStatsData({
+                workers: doc.detection_summary.max_workers,
+                compliance_score: doc.detection_summary.compliance_score,
+                total_incidents: doc.detection_summary.total_incidents
+            });
+            
+            // Map raw incident frames to unique readable rows
+            const formattedIncidents = (doc.detection_summary.incidents_list || []).map((inc, index) => ({
+                id: index + 1,
+                type: inc.type,
+                location: `Frame ${inc.frame}`,
+                status: "Pending"
+            }));
+            
+            setIncidentsData(formattedIncidents);
+            
         } catch (error) {
-            alert("Error uploading video: " + error.message);
+            alert("Error processing video: " + error.message);
         } finally {
             setUploading(false);
             e.target.value = null; // Reset input so the same file can be uploaded again
@@ -188,7 +196,7 @@ function Dashboard() {
                                 id="video-url-input"
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' && e.target.value) {
-                                        setVideoData({ url: e.target.value, timestamp: Date.now() });
+                                        setVideoData({ url: e.target.value });
                                     }
                                 }}
                             />
@@ -197,7 +205,7 @@ function Dashboard() {
                                 onClick={() => {
                                     const input = document.getElementById('video-url-input');
                                     if (input && input.value) {
-                                        setVideoData({ url: input.value, timestamp: Date.now() });
+                                        setVideoData({ url: input.value });
                                     }
                                 }}
                             >
@@ -213,7 +221,7 @@ function Dashboard() {
                             </button>
                         )}
                         <label className="cursor-pointer bg-[#1d1d1f] dark:bg-white dark:text-black hover:bg-[#333336] dark:hover:bg-gray-200 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-md flex items-center gap-2 active:scale-95">
-                            {uploading ? "Uploading..." : <><FaUpload /> Upload Video</>}
+                            {uploading ? "Analyzing Video (May take a minute)..." : <><FaUpload /> Upload & Analyze</>}
                             <input type="file" className="hidden" accept="video/mp4,video/x-m4v,video/*" onChange={handleFileUpload} disabled={uploading} />
                         </label>
                     </div>
@@ -230,18 +238,31 @@ function Dashboard() {
                                 {videoData ? (
                                     <>
                                         <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
-                                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_#ef4444]" />
-                                            <span className="text-xs text-white font-medium tracking-wide uppercase">AI Live Analysis</span>
+                                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_#22c55e]" />
+                                            <span className="text-xs text-white font-medium tracking-wide uppercase">AI Processed</span>
                                         </div>
-                                        <div ref={dashboardContainerRef} className="w-full h-full object-contain" />
+                                        <video 
+                                            src={videoData.url} 
+                                            controls 
+                                            autoPlay 
+                                            loop 
+                                            className="w-full h-full object-contain bg-black"
+                                        />
                                     </>
                                 ) : (
                                     <div className="text-center p-8">
                                         <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/10 group-hover:scale-110 transition-transform duration-500">
                                             <FaUpload size={32} className="text-gray-400" />
                                         </div>
-                                        <h3 className="text-xl text-white font-medium tracking-tight mb-2">No Video Source</h3>
-                                        <p className="text-gray-400 text-sm max-w-sm">Upload a construction site video using the button in the top right to begin real-time AI safety analysis.</p>
+                                        <h3 className="text-xl text-white font-medium tracking-tight mb-2">
+                                            {uploading ? "Processing video..." : "No Video Source"}
+                                        </h3>
+                                        <p className="text-gray-400 text-sm max-w-sm">
+                                            {uploading 
+                                                ? "Our AI is currently running YOLO object detection on the uploaded video. This may take a moment."
+                                                : "Upload a construction site video using the button in the top right to begin AI safety analysis."
+                                            }
+                                        </p>
                                     </div>
                                 )}
                             </div>
@@ -282,7 +303,7 @@ function Dashboard() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-white/5">
-                                    {incidentsData.length > 0 ? incidentsData.map((incident) => (
+                                    {incidentsData.length > 0 ? incidentsData.slice(0, 10).map((incident) => (
                                         <tr key={incident.id} className="hover:bg-white/50 dark:hover:bg-white/5 transition-colors">
                                             <td className="py-4 px-8 text-sm font-medium text-gray-900 dark:text-gray-200">#{incident.id}</td>
                                             <td className="py-4 px-8 text-sm text-gray-600 dark:text-gray-400">{incident.type}</td>
@@ -314,4 +335,3 @@ function Dashboard() {
 }
 
 export default Dashboard;
-

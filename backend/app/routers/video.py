@@ -50,7 +50,12 @@ def get_model():
         PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(ROUTER_DIR)))
         model_path = os.path.normpath(os.path.join(PROJECT_ROOT, "models", "ppe_model.pt"))
         if not os.path.exists(model_path):
-            raise FileNotFoundError(f"Model not found at {model_path}")
+            # Fallback for docker containers where backend is the root
+            fallback_path = os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(ROUTER_DIR)), "models", "ppe_model.pt"))
+            if os.path.exists(fallback_path):
+                model_path = fallback_path
+            else:
+                raise FileNotFoundError(f"Model not found at {model_path} or {fallback_path}")
         torch.set_num_threads(1)
         _model = YOLO(model_path)
     return _model

@@ -132,9 +132,9 @@ async def request_stock(stock_id: str, worker_name: str = Form(...), quantity: i
 
     try:
         # Dynamically fetch and strip accidental quotes from Render env vars
-        TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "").strip('"').strip("'")
-        TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "").strip('"').strip("'")
-        TWILIO_WHATSAPP_SENDER = os.getenv("TWILIO_WHATSAPP_SENDER", "").strip('"').strip("'")
+        TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "ACe55e19b57c97440065b182d31e374ce4").strip('"').strip("'")
+        TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "404df8b198d252e9e4898d2545c96fc8").strip('"').strip("'")
+        TWILIO_WHATSAPP_SENDER = os.getenv("TWILIO_WHATSAPP_SENDER", "whatsapp:+14155238886").strip('"').strip("'")
         ADMIN_WHATSAPP_NUMBER = os.getenv("ADMIN_WHATSAPP_NUMBER", "whatsapp:+94760429021").strip('"').strip("'")
 
         if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_SENDER]):

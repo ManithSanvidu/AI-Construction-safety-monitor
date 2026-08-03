@@ -38,7 +38,7 @@ function Dashboard() {
                 imgRef.current.style.display = 'none';
             }
         };
-    }, [videoData, imgRef, hiddenContainerRef]);
+    }, [videoData, imgRef, hiddenContainerRef, activeTab]);
 
     const statistics = [
         {

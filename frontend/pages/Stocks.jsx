@@ -76,6 +76,20 @@ const Stocks=()=>{
         }
     };
 
+    const handleDelete = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this stock?")) return;
+        try {
+            const res = await fetch(`${apiUrl}/api/stocks/${id}`, {
+                method: "DELETE"
+            });
+            if (!res.ok) throw new Error("Delete failed");
+            fetchStocks();
+        } catch (error) {
+            console.error(error);
+            alert("Failed to delete stock.");
+        }
+    };
+
     const fetchStocks=async()=>{
         try{
             const res=await fetch(`${apiUrl}/api/stocks`, {

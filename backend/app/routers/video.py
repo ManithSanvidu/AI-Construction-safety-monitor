@@ -30,16 +30,32 @@ _model = None
 def get_model():
     global _model
     if _model is None:
+        import os
         ROUTER_DIR = os.path.dirname(os.path.abspath(__file__))
-        PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(ROUTER_DIR)))
-        model_path = os.path.normpath(os.path.join(PROJECT_ROOT, "models", "ppe_model.pt"))
-        if not os.path.exists(model_path):
-            # Fallback for docker containers where backend is the root
-            fallback_path = os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(ROUTER_DIR)), "models", "ppe_model.pt"))
-            if os.path.exists(fallback_path):
-                model_path = fallback_path
-            else:
-                raise FileNotFoundError(f"Model not found at {model_path} or {fallback_path}")
+        
+        possible_paths = [
+            # 1. Local execution from project root (Construction-safety-monitor/models)
+            os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(ROUTER_DIR))), "models", "ppe_model.pt")),
+            
+            # 2. Local execution or Docker where backend is the root (backend/models)
+            os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(ROUTER_DIR)), "models", "ppe_model.pt")),
+            
+            # 3. Docker container specific paths
+            "/app/models/ppe_model.pt",
+            
+            # 4. Same directory as the backend run.py
+            os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(ROUTER_DIR))), "backend", "models", "ppe_model.pt"))
+        ]
+        
+        model_path = None
+        for p in possible_paths:
+            if os.path.exists(p):
+                model_path = p
+                break
+                
+        if not model_path:
+            raise FileNotFoundError(f"Model not found. Looked in: {possible_paths}")
+            
         torch.set_num_threads(1)
         _model = YOLO(model_path)
     return _model

@@ -26,7 +26,7 @@ function Dashboard() {
     const videoRef = useRef(null);
     const pollRef = useRef(null);
     
-    const { videoData, setVideoData, statsData, setStatsData, incidentsData, setIncidentsData, clearVideo } = useVideo();
+    const { videoData, setVideoData, statsData, setStatsData, incidentsData, setIncidentsData, setHistory, clearVideo } = useVideo();
     const { user, logout } = useAuth();
     const isAdmin = user?.role === "admin";
 
@@ -85,6 +85,13 @@ function Dashboard() {
                         status: "Pending"
                     }));
                     setIncidentsData(formattedIncidents);
+                    
+                    // Add point to history for live charts
+                    setHistory(prev => {
+                        const newHistory = [...prev, { time: new Date().toLocaleTimeString([], { hour12: false }), compliance: data.detection_summary.compliance_score }];
+                        if (newHistory.length > 20) newHistory.shift();
+                        return newHistory;
+                    });
                 }
             } catch (err) {
                 // Network error — keep polling

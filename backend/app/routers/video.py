@@ -35,24 +35,38 @@ def get_model():
     global _model
     if _model is None:
         ROUTER_DIR = os.path.dirname(os.path.abspath(__file__))
-        
-        possible_paths = [
-            os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(ROUTER_DIR))), "models", "ppe_model.pt")),
-            os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(ROUTER_DIR)), "models", "ppe_model.pt")),
+
+        # Allow explicit override via env var
+        env_path = os.environ.get("YOLO_MODEL_PATH")
+        possible_paths = []
+        if env_path:
+            possible_paths.append(os.path.normpath(env_path))
+
+        # Common locations (including actual file in this repo)
+        repo_root = os.path.normpath(os.path.join(ROUTER_DIR, "..", "..", ".."))
+        possible_paths += [
+            os.path.join(repo_root, "yolo11n.pt"),
+            os.path.join(repo_root, "yolo.pt"),
+            os.path.join(repo_root, "models", "ppe_model.pt"),
+            os.path.join(repo_root, "backend", "models", "ppe_model.pt"),
             "/app/models/ppe_model.pt",
-            os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(ROUTER_DIR))), "backend", "models", "ppe_model.pt"))
         ]
-        
+
         model_path = None
         for p in possible_paths:
-            if os.path.exists(p):
+            if p and os.path.exists(p):
                 model_path = p
                 break
-                
+
         if not model_path:
             raise FileNotFoundError(f"Model not found. Looked in: {possible_paths}")
-            
-        torch.set_num_threads(1)
+
+        # Limit threads to avoid CPU contention in containers
+        try:
+            torch.set_num_threads(1)
+        except Exception:
+            pass
+
         _model = YOLO(model_path)
     return _model
 
@@ -157,7 +171,7 @@ def _background_process(task_id: str, input_path: str, raw_output_path: str, fin
             
             if allowed_classes is None:
                 allowed_classes = [k for k in model.names.keys() if k != 4]
-            
+                
             zone_vertices = [(300, 300), (600, 300), (800, 500), (200, 500)]
             polygon = Polygon(zone_vertices)
             
@@ -299,7 +313,11 @@ def _background_process(task_id: str, input_path: str, raw_output_path: str, fin
         logger.error(f"[Task {task_id}] Background processing failed: {e}")
         import traceback
         traceback.print_exc()
-        _tasks[task_id] = {"status": "error", "message": str(e)}
+        # Update existing task dict so status endpoint still returns progress/message
+        if task_id in _tasks and isinstance(_tasks[task_id], dict):
+            _tasks[task_id].update({"status": "error", "message": str(e)})
+        else:
+            _tasks[task_id] = {"status": "error", "message": str(e)}
 
 
 @router.post("/upload")
@@ -368,6 +386,7 @@ async def get_task_status(task_id: str):
         "progress": task.get("progress", 0),
         "detection_summary": task.get("detection_summary"),
         "processed_video_url": task.get("processed_video_url"),
+        "message": task.get("message")
     }
 
 

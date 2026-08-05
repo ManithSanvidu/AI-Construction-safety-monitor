@@ -235,14 +235,20 @@ def _background_process(task_id: str, input_path: str, raw_output_path: str, fin
             if total_frame_count > 0:
                 _tasks[task_id]["progress"] = min(90, int((frame_count / total_frame_count) * 90))
             
+            # Live compliance score and summary for real-time frontend updates
+            if total_expected > 0:
+                summary["compliance_score"] = round((total_found / total_expected) * 100, 1)
+            
+            _tasks[task_id]["detection_summary"] = dict(summary)
+            
         cap.release()
         out.release()
         
-        if total_expected > 0:
-            summary["compliance_score"] = round((total_found / total_expected) * 100, 1)
-        
         if len(summary["incidents_list"]) > 50:
             summary["incidents_list"] = summary["incidents_list"][:50]
+        
+        # Final update
+        _tasks[task_id]["detection_summary"] = summary
         
         # Convert mp4v to browser-playable H.264
         _tasks[task_id]["progress"] = 92

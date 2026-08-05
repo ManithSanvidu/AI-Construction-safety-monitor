@@ -143,11 +143,11 @@ return (
             </div>
 
             <div className="h-64 w-full">
-              {history.length === 0 ? (
+              {(!history || history.length === 0) ? (
                 <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium">Waiting for video stream data...</div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={history} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                  <LineChart data={history || []} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
                     <XAxis dataKey="time" stroke="#9ca3af" fontSize={12} tickMargin={10} />
                     <YAxis stroke="#9ca3af" fontSize={12} domain={[0, 100]} />

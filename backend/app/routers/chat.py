@@ -12,9 +12,19 @@ def get_project_context():
     try:
         stocks=list(db.stocks.find())
         low_stocks=[s['item_name'] for s in stocks if s.get('status') in ['Low stock','Out of Stock'] or s.get('critical_out of stock')]
+        
+        # Build detailed stocks list
+        stock_details_list = []
+        for s in stocks:
+            name = s.get('item_name', 'Unknown')
+            qty = s.get('quantity', 'N/A')
+            status = s.get('status', 'Unknown')
+            stock_details_list.append(f"  * {name}: {qty} units ({status})")
+        stocks_str = "\n".join(stock_details_list) if stock_details_list else "None"
     except:
         stocks=[]
         low_stocks=[]
+        stocks_str = "Data unavailable"
 
     #Get Workers status
     try:
@@ -38,11 +48,11 @@ def get_project_context():
         recent_compliance = ["Data unavailable"]
 
     context=(
-        "You are the SiteWatch AI assistant for a construction safety monitoring dashboard."
+        "You are the SiteWatch AI assistant for a construction safety monitoring dashboard.\n"
         "Answer the user's questions strictly based on the following real-time system data:\n\n"
-
-        f"- Low/Out of Stock Items: {','.join(low_stocks) if low_stocks else 'None'}\n"
         f"- Total Stocks Monitored: {len(stocks)}\n"
+        f"- Low/Out of Stock Items: {','.join(low_stocks) if low_stocks else 'None'}\n"
+        f"- All Stocks List:\n{stocks_str}\n\n"
         f"- Active Workers on Site: {active_workers}\n"
         f"- Recent Incidents: {', '.join(recent_incidents) if recent_incidents else 'None'}\n"
         f"- Recent Compliance Reports: {', '.join(recent_compliance) if recent_compliance else 'None'}\n\n"
@@ -53,28 +63,35 @@ def get_project_context():
 @router.post("/")
 async def chat_with_ai(request:ChatRequest):
     try:
-        api_key = os.getenv("GEMINI_API_KEY", "").strip('"').strip("'").strip()
+        api_key = os.getenv("GOOGLE_API_KEY", "").strip('"').strip("'").strip()
         if not api_key:
-            return {"response": "The AI assistant is currently unavailable because the API key is not configured on the server."}
+            raise RuntimeError("GOOGLE_API_KEY environment variable is not configured")
         
-        # Pop GCP default credentials so google-genai doesn't try to use OAuth
-        if "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
-            os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS")
-            
+        # Pop GCP default credentials to ensure the SDK doesn't attempt OAuth
+        for key in ["GOOGLE_APPLICATION_CREDENTIALS", "GOOGLE_CLOUD_PROJECT"]:
+            if key in os.environ:
+                os.environ.pop(key)
+                
         from google import genai
+        from google.genai.errors import APIError
+        
+        # Initialize client specifically with api_key
         client = genai.Client(api_key=api_key)
         
         context=get_project_context()
-        prompt = f"{context}\n\nUser Question: {request.message}\nAssistant Answer:"
+        
+        contents = [
+            {"role": "user", "parts": [{"text": f"{context}\n\nUser Question: {request.message}\nAssistant Answer:"}]}
+        ]
         
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
-            contents=prompt
+            model='gemini-flash-latest',
+            contents=contents
         )
         return {"response": response.text.strip()}
 
     except Exception as e:
-        print(f"Chatbot Error:{e}")
-        # Return the actual error message so the frontend can display it
-        raise HTTPException(status_code=500,detail=f"Chatbot Error: {str(e)}")
+        print(f"Chatbot Diagnostic Log: {type(e).__name__} - {str(e)}")
+        # Return a safe, generic error to the user
+        raise HTTPException(status_code=500, detail="Sorry, I am having trouble connecting to the AI service. Please try again.")
     

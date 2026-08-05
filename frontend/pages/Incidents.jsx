@@ -31,8 +31,8 @@ const Incidents = () => {
     const navigate = useNavigate();
     const activeTab = "Incidents";
     
-    // Replace useVideo() with a fetch to our new persistent backend
-    const [incidentsData, setIncidentsData] = useState([]);
+    const { incidentsData: liveIncidentsData } = useVideo();
+    const [fetchedIncidents, setFetchedIncidents] = useState([]);
     const { user, logout } = useAuth();
     const isAdmin = user?.role === "admin";
     
@@ -42,12 +42,10 @@ const Incidents = () => {
     useEffect(() => {
         const fetchIncidents = async () => {
             try {
-                const res = await fetch(`${apiUrl}/api/incidents`, {
-                    
-                });
+                const res = await fetch(`${apiUrl}/api/incidents`);
                 if (res.ok) {
                     const data = await res.json();
-                    setIncidentsData(data);
+                    setFetchedIncidents(data);
                 }
             } catch (err) {
                 console.error("Failed to fetch incidents:", err);
@@ -55,10 +53,12 @@ const Incidents = () => {
         };
         fetchIncidents();
         
-        // Optional: Poll every 5 seconds if you want it to feel "live"
         const interval = setInterval(fetchIncidents, 5000);
         return () => clearInterval(interval);
     }, []);
+
+    // Prioritize live data if available
+    const incidentsData = liveIncidentsData?.length > 0 ? liveIncidentsData : fetchedIncidents;
 
     const handleLogout = () => {
         logout();

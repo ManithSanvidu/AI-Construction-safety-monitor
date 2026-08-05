@@ -5,6 +5,9 @@ Integrates person tracking and detection into a reusable function.
 from ultralytics import YOLO
 import cv2
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 _model = None
 _class_mapping = None
@@ -77,9 +80,27 @@ def detect_people(video_path):
             for result in results:
                 boxes = result.boxes
                 for box in boxes:
-                    cls_id = int(box.cls[0])
-                    conf = float(box.conf[0])
-                    
+                    try:
+                        # Normalize class id (handles tensors, numpy arrays, lists, etc.)
+                        raw_cls = box.cls[0]
+                        if hasattr(raw_cls, "item"):
+                            cls_id = int(raw_cls.item())
+                        elif isinstance(raw_cls, (list, tuple)):
+                            cls_id = int(raw_cls[0])
+                        else:
+                            cls_id = int(raw_cls)
+
+                        # Normalize confidence
+                        raw_conf = box.conf[0]
+                        if hasattr(raw_conf, "item"):
+                            conf = float(raw_conf.item())
+                        else:
+                            conf = float(raw_conf)
+                    except Exception as e:
+                        # Skip malformed boxes instead of raising; keeps processing robust
+                        logger.debug(f"Skipping malformed detection box: {e}")
+                        continue
+
                     label = _class_mapping.get(cls_id)
                     if label == "Person":
                         worker_count += 1
@@ -96,6 +117,7 @@ def detect_people(video_path):
             
     except Exception as e:
         cap.release()
+        logger.exception("Error during person detection")
         return {"status": "error", "message": str(e)}
         
     cap.release()

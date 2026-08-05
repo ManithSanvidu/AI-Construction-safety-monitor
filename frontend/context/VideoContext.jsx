@@ -8,11 +8,13 @@ export const VideoProvider = ({ children }) => {
     const [videoData, setVideoData] = useState(null);
     const [statsData, setStatsData] = useState({ workers: 0, compliance_score: 100, total_incidents: 0 });
     const [incidentsData, setIncidentsData] = useState([]);
+    const [history, setHistory] = useState([]);
     
     const clearVideo = () => {
         setVideoData(null);
         setStatsData({ workers: 0, compliance_score: 100, total_incidents: 0 });
         setIncidentsData([]);
+        setHistory([]);
     };
 
     return (
@@ -20,6 +22,7 @@ export const VideoProvider = ({ children }) => {
             videoData, setVideoData, 
             statsData, setStatsData,
             incidentsData, setIncidentsData,
+            history, setHistory,
             clearVideo 
         }}>
             {children}

@@ -20,3 +20,4 @@ twilio
 google-genai
 cloudinary
 email-validator
+shapely

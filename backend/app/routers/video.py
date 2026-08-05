@@ -338,4 +338,72 @@ def _background_process(task_id: str, input_path: str, raw_output_path: str, fin
             doc = {}
         
         _tasks[task_id].update({
-{
+            "status": "done",
+            "processed_video_filename": serve_filename,
+            "processed_video_url": f"/uploads/videos/{serve_filename}",
+            "mongo_doc": doc,
+            "progress": 100
+        })
+    except Exception as e:
+        logger.exception(f"[Task {task_id}] Error during processing: {e}")
+        # Ensure task dict exists to avoid KeyError
+        if task_id not in _tasks:
+            _tasks[task_id] = {}
+        _tasks[task_id]["status"] = "error"
+        _tasks[task_id]["message"] = str(e)
+
+
+# API endpoints
+@router.post("/upload")
+async def upload_video(file: UploadFile = File(...)):
+    try:
+        ext = os.path.splitext(file.filename)[1].lower()
+        if ext not in [".mp4", ".mov", ".avi", ".mkv"]:
+            raise HTTPException(status_code=400, detail="Unsupported file type")
+        task_id = str(uuid.uuid4())
+        original_filename = f"{task_id}{ext}"
+        original_path = os.path.join(UPLOAD_DIR, original_filename)
+        with open(original_path, "wb") as f:
+            contents = await file.read()
+            f.write(contents)
+        raw_output = os.path.join(UPLOAD_DIR, f"{task_id}_raw.mp4")
+        final_output = os.path.join(UPLOAD_DIR, f"{task_id}.mp4")
+        _tasks[task_id] = {
+            "status": "processing",
+            "progress": 0,
+            "start_time": time.time(),
+            "original_filename": original_filename,
+            "original_video_filename": original_filename
+        }
+        threading.Thread(target=_background_process, args=(task_id, original_path, raw_output, final_output), daemon=True).start()
+        return {"task_id": task_id}
+    except Exception as e:
+        logger.exception("Upload failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/status/{task_id}")
+async def get_status(task_id: str):
+    task = _tasks.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
+
+
+@router.get("/stream/{task_id}")
+async def stream_latest_frame(task_id: str):
+    task = _tasks.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404)
+    if "latest_frame" not in task:
+        raise HTTPException(status_code=404, detail="No frame available")
+    # StreamingResponse expects an iterator of bytes; provide a single-frame iterator
+    return StreamingResponse(iter([task["latest_frame"]]), media_type="image/jpeg")
+
+
+@router.get("/download/{filename}")
+async def download_file(filename: str):
+    path = os.path.join(UPLOAD_DIR, filename)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(path)

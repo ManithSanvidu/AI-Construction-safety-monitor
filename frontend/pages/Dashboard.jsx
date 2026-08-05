@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
     FaHardHat,
@@ -21,11 +21,126 @@ function Dashboard() {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState("Live Tracking");
     const [uploading, setUploading] = useState(false);
+    const [processing, setProcessing] = useState(false);
+    const [processProgress, setProcessProgress] = useState(0);
+    const videoRef = useRef(null);
+    const pollRef = useRef(null);
     
-    // We now use Cloudinary video URL instead of live stream refs
     const { videoData, setVideoData, statsData, setStatsData, incidentsData, setIncidentsData, clearVideo } = useVideo();
     const { user, logout } = useAuth();
     const isAdmin = user?.role === "admin";
+
+    // Clean up polling on unmount
+    useEffect(() => {
+        return () => {
+            if (pollRef.current) clearInterval(pollRef.current);
+        };
+    }, []);
+
+    const getApiUrl = () => {
+        let apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+        return apiUrl.replace(/\/+$/, '');
+    };
+
+    const startPolling = (taskId) => {
+        const apiUrl = getApiUrl();
+        setProcessing(true);
+        setProcessProgress(0);
+        
+        pollRef.current = setInterval(async () => {
+            try {
+                const res = await fetch(`${apiUrl}/api/video/status/${taskId}`);
+                if (!res.ok) return;
+                
+                const data = await res.json();
+                setProcessProgress(data.progress || 0);
+                
+                if (data.status === "done") {
+                    clearInterval(pollRef.current);
+                    pollRef.current = null;
+                    setProcessing(false);
+                    
+                    if (data.processed_video_url) {
+                        setVideoData({ url: `${apiUrl}${data.processed_video_url}`, isStream: false });
+                    }
+                } else if (data.status === "error") {
+                    clearInterval(pollRef.current);
+                    pollRef.current = null;
+                    setProcessing(false);
+                    alert("AI analysis failed: " + (data.message || "Unknown error"));
+                }
+                
+                // Update stats live during polling
+                if (data.detection_summary) {
+                    setStatsData({
+                        workers: data.detection_summary.max_workers,
+                        compliance_score: data.detection_summary.compliance_score,
+                        total_incidents: data.detection_summary.total_incidents
+                    });
+                        
+                    const formattedIncidents = (data.detection_summary.incidents_list || []).map((inc, index) => ({
+                        id: index + 1,
+                        type: inc.type,
+                        location: `Frame ${inc.frame}`,
+                        status: "Pending"
+                    }));
+                    setIncidentsData(formattedIncidents);
+                }
+            } catch (err) {
+                // Network error — keep polling
+            }
+        }, 2000);
+    };
+
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setUploading(true);
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            const apiUrl = getApiUrl();
+            
+            const response = await fetch(`${apiUrl}/api/video/upload`, {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.detail || "Upload failed with status " + response.status);
+            }
+            
+            const result = await response.json();
+            
+            // Immediately start polling for live AI processing results and stats
+            if (result.task_id) {
+                // Show LIVE processed MJPEG stream IMMEDIATELY
+                setVideoData({ url: `${apiUrl}/api/video/stream_live/${result.task_id}`, isStream: true });
+                startPolling(result.task_id);
+            } else {
+                setVideoData({ url: `${apiUrl}${result.original_video_url}`, isStream: false });
+            }
+            
+        } catch (error) {
+            alert("Error uploading video: " + error.message);
+        } finally {
+            setUploading(false);
+            e.target.value = null;
+        }
+    };
+
+    const handleClearVideo = () => {
+        if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+        }
+        setProcessing(false);
+        setProcessProgress(0);
+        clearVideo();
+    };
 
     const statistics = [
         {
@@ -61,58 +176,6 @@ function Dashboard() {
     const handleLogout = () => {
         logout();
         navigate("/login");
-    };
-
-    const handleFileUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        setUploading(true);
-        const formData = new FormData();
-        formData.append("file", file);
-
-        try {
-            let apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-            apiUrl = apiUrl.replace(/\/+$/, '');
-            const response = await fetch(`${apiUrl}/api/video/upload`, {
-                method: "POST",
-                body: formData,
-            });
-
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.detail || "Upload failed with status " + response.status);
-            }
-            
-            const result = await response.json();
-            const doc = result.data;
-            
-            // Set Cloudinary URL for the video player
-            setVideoData({ url: doc.processed_video_url });
-            
-            // Set stats from batch detection summary
-            setStatsData({
-                workers: doc.detection_summary.max_workers,
-                compliance_score: doc.detection_summary.compliance_score,
-                total_incidents: doc.detection_summary.total_incidents
-            });
-            
-            // Map raw incident frames to unique readable rows
-            const formattedIncidents = (doc.detection_summary.incidents_list || []).map((inc, index) => ({
-                id: index + 1,
-                type: inc.type,
-                location: `Frame ${inc.frame}`,
-                status: "Pending"
-            }));
-            
-            setIncidentsData(formattedIncidents);
-            
-        } catch (error) {
-            alert("Error processing video: " + error.message);
-        } finally {
-            setUploading(false);
-            e.target.value = null; // Reset input so the same file can be uploaded again
-        }
     };
 
     const navItems = [
@@ -199,7 +262,7 @@ function Dashboard() {
                                 id="video-url-input"
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' && e.target.value) {
-                                        setVideoData({ url: e.target.value });
+                                        setVideoData({ url: e.target.value, isStream: false });
                                     }
                                 }}
                             />
@@ -208,7 +271,7 @@ function Dashboard() {
                                 onClick={() => {
                                     const input = document.getElementById('video-url-input');
                                     if (input && input.value) {
-                                        setVideoData({ url: input.value });
+                                        setVideoData({ url: input.value, isStream: false });
                                     }
                                 }}
                             >
@@ -217,14 +280,14 @@ function Dashboard() {
                         </div>
                         {videoData && (
                             <button 
-                                onClick={clearVideo}
+                                onClick={handleClearVideo}
                                 className="bg-red-500 hover:bg-red-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-all shadow-md flex items-center gap-2 active:scale-95"
                             >
                                 <FaTrash /> Remove Video
                             </button>
                         )}
                         <label className="cursor-pointer bg-[#1d1d1f] dark:bg-white dark:text-black hover:bg-[#333336] dark:hover:bg-gray-200 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-md flex items-center gap-2 active:scale-95">
-                            {uploading ? "Analyzing Video (May take a minute)..." : <><FaUpload /> Upload & Analyze</>}
+                            {uploading ? "Uploading..." : <><FaUpload /> Upload & Analyze</>}
                             <input type="file" className="hidden" accept="video/mp4,video/x-m4v,video/*" onChange={handleFileUpload} disabled={uploading} />
                         </label>
                     </div>
@@ -240,29 +303,53 @@ function Dashboard() {
                             <div className="bg-[#1d1d1f] dark:bg-black rounded-[1.8rem] aspect-video w-full flex flex-col items-center justify-center relative overflow-hidden group">
                                 {videoData ? (
                                     <>
+                                        {/* Status badge */}
                                         <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
-                                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_#22c55e]" />
-                                            <span className="text-xs text-white font-medium tracking-wide uppercase">AI Processed</span>
+                                            <span className={`w-2 h-2 rounded-full ${processing ? 'bg-yellow-500 animate-pulse shadow-[0_0_8px_#eab308]' : 'bg-green-500 animate-pulse shadow-[0_0_8px_#22c55e]'}`} />
+                                            <span className="text-xs text-white font-medium tracking-wide uppercase">
+                                                {processing ? 'AI Analyzing...' : 'AI Processed'}
+                                            </span>
                                         </div>
-                                        <video 
-                                            src={videoData.url} 
-                                            controls 
-                                            autoPlay 
-                                            loop 
-                                            className="w-full h-full object-contain bg-black"
-                                        />
+                                        
+                                        
+                                        {videoData.isStream ? (
+                                            <img 
+                                                src={videoData.url} 
+                                                alt="Live AI Video Stream"
+                                                className="w-full h-full object-contain bg-black"
+                                            />
+                                        ) : (
+                                            <video 
+                                                ref={videoRef}
+                                                key={videoData.url}
+                                                controls 
+                                                autoPlay 
+                                                muted
+                                                playsInline
+                                                loop 
+                                                preload="auto"
+                                                className="w-full h-full object-contain bg-black"
+                                            >
+                                                <source src={videoData.url} type="video/mp4" />
+                                                Your browser does not support the video tag.
+                                            </video>
+                                        )}
                                     </>
                                 ) : (
                                     <div className="text-center p-8">
                                         <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/10 group-hover:scale-110 transition-transform duration-500">
-                                            <FaUpload size={32} className="text-gray-400" />
+                                            {uploading ? (
+                                                <div className="w-10 h-10 border-4 border-white/20 border-t-[#E8A33D] rounded-full animate-spin" />
+                                            ) : (
+                                                <FaUpload size={32} className="text-gray-400" />
+                                            )}
                                         </div>
                                         <h3 className="text-xl text-white font-medium tracking-tight mb-2">
-                                            {uploading ? "Processing video..." : "No Video Source"}
+                                            {uploading ? "Uploading Video..." : "No Video Source"}
                                         </h3>
                                         <p className="text-gray-400 text-sm max-w-sm">
                                             {uploading 
-                                                ? "Our AI is currently running YOLO object detection on the uploaded video. This may take a moment."
+                                                ? "Saving your video to the server..."
                                                 : "Upload a construction site video using the button in the top right to begin AI safety analysis."
                                             }
                                         </p>

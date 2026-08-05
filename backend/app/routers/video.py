@@ -387,7 +387,12 @@ async def get_status(task_id: str):
     task = _tasks.get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    return task
+
+    # Prepare a JSON-serializable copy of the task without binary data (latest_frame is bytes)
+    safe_task = {k: v for k, v in task.items() if k != "latest_frame"}
+    # Include a small flag so frontend knows if a latest frame is available via the stream endpoint
+    safe_task["latest_frame_available"] = "latest_frame" in task
+    return safe_task
 
 
 @router.get("/stream/{task_id}")

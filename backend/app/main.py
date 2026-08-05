@@ -61,7 +61,53 @@ def read_root():
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    """Performs a lightweight health check of model availability, ffmpeg, and MongoDB connectivity.
+    This avoids raising an exception on import and returns structured status for monitoring.
+    """
+    status = {"status": "healthy", "checks": {}}
+
+    # Model readiness
+    try:
+        from app.routers.video import get_model
+        # get_model may be expensive; it's safe because lifespan already attempted to load it.
+        get_model()
+        status["checks"]["model"] = {"ok": True}
+    except Exception as e:
+        status["checks"]["model"] = {"ok": False, "error": str(e)}
+        status["status"] = "degraded"
+
+    # ffmpeg availability
+    try:
+        import shutil
+        import subprocess
+        ffmpeg_path = shutil.which("ffmpeg")
+        if ffmpeg_path:
+            try:
+                res = subprocess.run(["ffmpeg", "-version"], capture_output=True, text=True, timeout=5)
+                ver = res.stdout.splitlines()[0] if res.stdout else "unknown"
+                status["checks"]["ffmpeg"] = {"ok": True, "version": ver}
+            except Exception as e:
+                status["checks"]["ffmpeg"] = {"ok": False, "error": str(e)}
+                status["status"] = "degraded"
+        else:
+            status["checks"]["ffmpeg"] = {"ok": False, "error": "ffmpeg not found in PATH"}
+            status["status"] = "degraded"
+    except Exception as e:
+        status["checks"]["ffmpeg"] = {"ok": False, "error": str(e)}
+        status["status"] = "degraded"
+
+    # MongoDB connectivity
+    try:
+        from app.database import client as mongo_client
+        # Ping the server to ensure connectivity
+        mongo_client.admin.command('ping')
+        status["checks"]["mongo"] = {"ok": True}
+    except Exception as e:
+        status["checks"]["mongo"] = {"ok": False, "error": str(e)}
+        status["status"] = "degraded"
+
+    return status
+
 
 if __name__ == "__main__":
     import uvicorn

@@ -13,6 +13,7 @@ import torch
 import threading
 from shapely.geometry import Point, Polygon
 from app.database import db
+from pathlib import Path
 
 # Optional helper to download model from a URL if not present locally
 import requests
@@ -63,15 +64,38 @@ def get_model():
         if env_path:
             possible_paths.append(os.path.normpath(env_path))
 
-        # Common locations (including actual file in this repo)
-        repo_root = os.path.normpath(os.path.join(ROUTER_DIR, "..", "..", ".."))
-        possible_paths += [
-            os.path.join(repo_root, "yolo11n.pt"),
-            os.path.join(repo_root, "yolo.pt"),
-            os.path.join(repo_root, "models", "ppe_model.pt"),
-            os.path.join(repo_root, "backend", "models", "ppe_model.pt"),
-            "/app/models/ppe_model.pt",
-        ]
+        # Build a set of likely root directories to search from the router file up to a few parents,
+        # the current working directory, and common container paths. This is more robust across
+        # different packaging / deployment layouts where __file__ may be under /app or similar.
+        router_path = Path(ROUTER_DIR).resolve()
+        candidate_roots = [router_path] + list(router_path.parents[:5]) + [Path.cwd(), Path("/app"), Path("/workspace")]
+
+        for root in candidate_roots:
+            try:
+                root = root.resolve()
+            except Exception:
+                pass
+            possible_paths += [
+                str(root / "yolo11n.pt"),
+                str(root / "yolo.pt"),
+                str(root / "models" / "ppe_model.pt"),
+                str(root / "backend" / "models" / "ppe_model.pt"),
+                str(root / "backend" / "yolo11n.pt"),
+            ]
+
+        # Also include a couple of absolute container-friendly defaults
+        possible_paths += ["/app/models/ppe_model.pt"]
+
+        # Deduplicate while preserving order
+        seen = set()
+        filtered = []
+        for p in possible_paths:
+            if p and p not in seen:
+                filtered.append(p)
+                seen.add(p)
+        possible_paths = filtered
+
+        logger.info(f"Searching for YOLO model in paths: {possible_paths}")
 
         model_path = None
         for p in possible_paths:
@@ -84,7 +108,7 @@ def get_model():
         if not model_path:
             model_url = os.environ.get("MODEL_URL")
             if model_url:
-                target_dir = os.path.join(repo_root, "backend", "models")
+                target_dir = os.path.join(os.getcwd(), "backend", "models")
                 os.makedirs(target_dir, exist_ok=True)
                 dest = os.path.join(target_dir, "ppe_model.pt")
                 try:

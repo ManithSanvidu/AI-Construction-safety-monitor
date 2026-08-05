@@ -14,6 +14,9 @@ import threading
 from shapely.geometry import Point, Polygon
 from app.database import db
 
+# Optional helper to download model from a URL if not present locally
+import requests
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/video", tags=["video"])
@@ -30,6 +33,24 @@ _model = None
 
 # In-memory task tracker for background processing
 _tasks = {}  # task_id -> { status: "processing"|"done"|"error", data: {...} }
+
+
+def _download_model(url: str, dest_path: str, chunk_size: int = 1 << 20):
+    """Download a file from `url` to `dest_path` streaming to disk.
+    Overwrites existing file on success.
+    Raises exception on failure.
+    """
+    tmp_path = dest_path + ".downloading"
+    logger.info(f"Downloading model from {url} to {dest_path} ...")
+    with requests.get(url, stream=True, timeout=300) as r:
+        r.raise_for_status()
+        with open(tmp_path, "wb") as f:
+            for chunk in r.iter_content(chunk_size=chunk_size):
+                if chunk:
+                    f.write(chunk)
+    os.replace(tmp_path, dest_path)
+    logger.info("Model download complete")
+
 
 def get_model():
     global _model
@@ -56,10 +77,25 @@ def get_model():
         for p in possible_paths:
             if p and os.path.exists(p):
                 model_path = p
+                logger.info(f"Found YOLO model at: {model_path}")
                 break
 
+        # If model not found locally, try to download using MODEL_URL env var
         if not model_path:
-            raise FileNotFoundError(f"Model not found. Looked in: {possible_paths}")
+            model_url = os.environ.get("MODEL_URL")
+            if model_url:
+                target_dir = os.path.join(repo_root, "backend", "models")
+                os.makedirs(target_dir, exist_ok=True)
+                dest = os.path.join(target_dir, "ppe_model.pt")
+                try:
+                    _download_model(model_url, dest)
+                    model_path = dest
+                except Exception as ex:
+                    logger.error(f"Failed to download model from MODEL_URL: {ex}")
+                    raise FileNotFoundError(f"Failed to download model from MODEL_URL: {ex}")
+
+        if not model_path:
+            raise FileNotFoundError(f"Model not found. Looked in: {possible_paths} and no MODEL_URL provided")
 
         # Limit threads to avoid CPU contention in containers
         try:
@@ -67,7 +103,9 @@ def get_model():
         except Exception:
             pass
 
+        logger.info(f"Loading YOLO model from {model_path} ...")
         _model = YOLO(model_path)
+        logger.info("YOLO model loaded.")
     return _model
 
 
@@ -300,134 +338,4 @@ def _background_process(task_id: str, input_path: str, raw_output_path: str, fin
             doc = {}
         
         _tasks[task_id].update({
-            "status": "done",
-            "progress": 100,
-            "detection_summary": summary,
-            "processed_video_url": f"/uploads/videos/{serve_filename}",
-            "db_doc": doc
-        })
-        
-        logger.info(f"[Task {task_id}] Processing complete.")
-        
-    except Exception as e:
-        logger.error(f"[Task {task_id}] Background processing failed: {e}")
-        import traceback
-        traceback.print_exc()
-        # Update existing task dict so status endpoint still returns progress/message
-        if task_id in _tasks and isinstance(_tasks[task_id], dict):
-            _tasks[task_id].update({"status": "error", "message": str(e)})
-        else:
-            _tasks[task_id] = {"status": "error", "message": str(e)}
-
-
-@router.post("/upload")
-async def upload_video(file: UploadFile = File(...)):
-    """Save uploaded video and return immediately. Processing happens in background."""
-    if not file.filename.endswith(('.mp4', '.avi', '.mov', '.mkv')):
-        raise HTTPException(status_code=400, detail="Invalid video format")
-    
-    file_id = str(uuid.uuid4())
-    original_filename = f"{file_id}_original.mp4"
-    raw_processed_filename = f"{file_id}_raw.mp4"
-    final_processed_filename = f"{file_id}_processed.mp4"
-    
-    original_path = os.path.join(UPLOAD_DIR, original_filename)
-    raw_processed_path = os.path.join(UPLOAD_DIR, raw_processed_filename)
-    final_processed_path = os.path.join(UPLOAD_DIR, final_processed_filename)
-    
-    try:
-        # Save file to disk
-        contents = await file.read()
-        with open(original_path, "wb") as buffer:
-            buffer.write(contents)
-        
-        logger.info(f"Saved upload ({len(contents)} bytes) as {original_filename}")
-        
-        # Initialize task tracker
-        _tasks[file_id] = {
-            "status": "processing",
-            "progress": 0,
-            "original_filename": file.filename,
-            "original_video_filename": original_filename,
-            "start_time": time.time()
-        }
-        
-        # Start background processing thread
-        thread = threading.Thread(
-            target=_background_process,
-            args=(file_id, original_path, raw_processed_path, final_processed_path),
-            daemon=True
-        )
-        thread.start()
-        
-        # Return IMMEDIATELY with the original video URL
-        return {
-            "status": "success",
-            "message": "Video uploaded. Processing started in background.",
-            "task_id": file_id,
-            "original_video_url": f"/uploads/videos/{original_filename}"
-        }
-        
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Upload Error: {str(e)}")
-
-
-@router.get("/status/{task_id}")
-async def get_task_status(task_id: str):
-    """Poll this endpoint to check if background processing is done."""
-    task = _tasks.get(task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-    
-    return {
-        "status": task.get("status", "unknown"),
-        "progress": task.get("progress", 0),
-        "detection_summary": task.get("detection_summary"),
-        "processed_video_url": task.get("processed_video_url"),
-        "message": task.get("message")
-    }
-
-
-@router.get("/stream_live/{task_id}")
-async def stream_live_video(task_id: str):
-    """Streams MJPEG frames from the background YOLO processing live."""
-    task = _tasks.get(task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-        
-    async def event_generator():
-        # Yield initial boundary so the browser immediately recognizes the multipart stream
-        yield b'--frame\r\n'
-        
-        last_yielded = None
-        while True:
-            current_task = _tasks.get(task_id)
-            if not current_task:
-                break
-                
-            frame = current_task.get("latest_frame")
-            if frame and frame != last_yielded:
-                last_yielded = frame
-                yield (b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n')
-            
-            if current_task.get("status") in ["done", "error"]:
-                break
-                
-            await asyncio.sleep(0.03)  # Approx 30 FPS polling
-            
-    return StreamingResponse(event_generator(), media_type="multipart/x-mixed-replace; boundary=frame")
-
-
-@router.get("/history")
-async def get_video_history():
-    """Returns past processed videos from MongoDB."""
-    def fetch_history():
-        videos = list(db.video_analysis.find().sort("upload_date", -1).limit(10))
-        for v in videos:
-            v["_id"] = str(v["_id"])
-        return videos
-        
-    history = await asyncio.to_thread(fetch_history)
-    return {"status": "success", "data": history}
+{

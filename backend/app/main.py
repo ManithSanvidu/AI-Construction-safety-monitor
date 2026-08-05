@@ -12,7 +12,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import API_TITLE, API_VERSION
 from app.routers import auth, video, reports, stocks, chat, incidents, compliance, organizations, payment, contact
 
-app = FastAPI(title=API_TITLE, version=API_VERSION)
+# Define lifespan event to load model on startup
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Eagerly load the YOLO model so it's ready when a video is uploaded
+    from app.routers.video import get_model
+    try:
+        print("Loading YOLO model on startup...")
+        get_model()
+        print("YOLO model loaded successfully.")
+    except Exception as e:
+        print(f"Failed to load YOLO model on startup: {e}")
+    yield
+    # Cleanup code here if needed
+
+app = FastAPI(title=API_TITLE, version=API_VERSION, lifespan=lifespan)
 
 # Configure CORS
 app.add_middleware(
@@ -41,6 +57,7 @@ app.include_router(contact.router)
 @app.get("/")
 def read_root():
     return {"status": "success", "message": "Welcome to Construction Safety Monitor API"}
+
 
 @app.get("/health")
 def health_check():

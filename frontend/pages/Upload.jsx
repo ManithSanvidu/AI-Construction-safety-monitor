@@ -8,6 +8,11 @@ export default function Upload() {
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState("");
 
+  const getApiUrl = () => {
+    let apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    return apiUrl.replace(/\/+$/, '');
+  };
+
   async function handleUpload(e) {
     e.preventDefault();
     if (!file) return;
@@ -15,12 +20,13 @@ export default function Upload() {
     form.append("file", file);
 
     try {
-      const res = await fetch("/api/video/upload", { method: "POST", body: form });
+      const apiUrl = getApiUrl();
+      const res = await fetch(`${apiUrl}/api/video/upload`, { method: "POST", body: form });
       const data = await res.json();
       if (data.status === "success") {
         setTaskId(data.task_id);
-        setOriginalUrl(data.original_video_url);
-        pollStatus(data.task_id);
+        setOriginalUrl(`${apiUrl}${data.original_video_url}`);
+        pollStatus(data.task_id, apiUrl);
       } else {
         setMessage(JSON.stringify(data));
       }
@@ -29,15 +35,15 @@ export default function Upload() {
     }
   }
 
-  async function pollStatus(id) {
+  async function pollStatus(id, apiUrl) {
     const interval = 2000;
     const poll = async () => {
       try {
-        const res = await fetch(`/api/video/status/${id}`);
+        const res = await fetch(`${apiUrl}/api/video/status/${id}`);
         const data = await res.json();
         setProgress(data.progress || 0);
         if (data.processed_video_url) {
-          setProcessedUrl(data.processed_video_url);
+          setProcessedUrl(`${apiUrl}${data.processed_video_url}`);
         }
         if (data.message) {
           setMessage(data.message);

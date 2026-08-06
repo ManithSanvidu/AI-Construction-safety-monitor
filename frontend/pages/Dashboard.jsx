@@ -39,7 +39,14 @@ function Dashboard() {
 
     const getApiUrl = () => {
         let apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-        return apiUrl.replace(/\/+$/, '');
+        return apiUrl.replace(/\/+$/, '').replace(/\/api$/, '');
+    };
+
+    const formatVideoUrl = (url) => {
+        if (!url) return '';
+        if (url.startsWith('http://') || url.startsWith('https://')) return url;
+        const apiUrl = getApiUrl();
+        return `${apiUrl}${url.startsWith('/') ? '' : '/'}${url}`;
     };
 
     const startPolling = (taskId) => {
@@ -61,7 +68,7 @@ function Dashboard() {
                     setProcessing(false);
                     
                     if (data.processed_video_url) {
-                        setVideoData({ url: `${apiUrl}${data.processed_video_url}`, isStream: false });
+                        setVideoData({ url: formatVideoUrl(data.processed_video_url), isStream: false });
                     }
                 } else if (data.status === "error") {
                     clearInterval(pollRef.current);
@@ -124,11 +131,11 @@ function Dashboard() {
             
             // Immediately start polling for live AI processing results and stats
             if (result.task_id) {
-                // Show LIVE processed MJPEG stream IMMEDIATELY
-                setVideoData({ url: `${apiUrl}/api/video/stream_live/${result.task_id}`, isStream: true });
+                // Show the uploaded original video while processing
+                setVideoData({ url: formatVideoUrl(result.original_video_url), isStream: false });
                 startPolling(result.task_id);
             } else {
-                setVideoData({ url: `${apiUrl}${result.original_video_url}`, isStream: false });
+                setVideoData({ url: formatVideoUrl(result.original_video_url), isStream: false });
             }
             
         } catch (error) {

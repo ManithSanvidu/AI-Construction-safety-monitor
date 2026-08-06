@@ -31,10 +31,28 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title=API_TITLE, version=API_VERSION, lifespan=lifespan)
 
 # Configure CORS
+# Allow configuring allowed origins via FRONTEND_ORIGINS env var (comma-separated). If not set,
+# default to the deployed frontend (Vercel) + localhost development URLs.
+frontend_origins_env = os.getenv("FRONTEND_ORIGINS")
+if frontend_origins_env:
+    try:
+        ALLOWED_ORIGINS = [o.strip() for o in frontend_origins_env.split(",") if o.strip()]
+    except Exception:
+        ALLOWED_ORIGINS = []
+else:
+    ALLOWED_ORIGINS = [
+        "https://sitewatchaiglobal.vercel.app",
+        "https://www.sitewatchaiglobal.vercel.app",
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ]
+
+print(f"Configured CORS allowed origins: {ALLOWED_ORIGINS}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

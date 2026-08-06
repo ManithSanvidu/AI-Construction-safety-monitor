@@ -20,6 +20,63 @@ def _find_model_path(candidates):
     return None
 
 
+def _parse_box(box):
+    """Normalize a detection box from ultralytics to (cls_id, conf, (x1,y1,x2,y2)).
+    Returns (None, 0.0, (None,None,None,None)) on failure.
+    """
+    cls_id = None
+    conf = 0.0
+    xy = (None, None, None, None)
+
+    # class id
+    try:
+        raw_cls = getattr(box, "cls", None)
+        if raw_cls is None:
+            # some APIs expose .cls as a tensor/array directly
+            raw_cls = box[0]
+        raw_val = raw_cls[0]
+        if hasattr(raw_val, "item"):
+            cls_id = int(raw_val.item())
+        elif isinstance(raw_val, (list, tuple)):
+            cls_id = int(raw_val[0])
+        else:
+            cls_id = int(raw_val)
+    except Exception:
+        cls_id = None
+
+    # confidence
+    try:
+        raw_conf = getattr(box, "conf", None)
+        if raw_conf is None:
+            raw_conf = 0.0
+        raw_val = raw_conf[0]
+        conf = float(raw_val.item()) if hasattr(raw_val, "item") else float(raw_val)
+    except Exception:
+        conf = 0.0
+
+    # xyxy
+    try:
+        if hasattr(box, "xyxy"):
+            v = box.xyxy[0]
+        elif hasattr(box, "xyxyxy"):
+            v = box.xyxyxy[0]
+        elif hasattr(box, "xywh"):
+            v = box.xywh[0]
+        else:
+            v = None
+        if v is not None:
+            if hasattr(v, "tolist"):
+                vals = v.tolist()
+            else:
+                vals = list(v)
+            x1, y1, x2, y2 = map(int, vals[:4])
+            xy = (x1, y1, x2, y2)
+    except Exception:
+        xy = (None, None, None, None)
+
+    return cls_id, conf, xy
+
+
 def _init_model():
     global _model, _class_map
     if _model is not None:
@@ -108,7 +165,10 @@ def detect_helmets(video_path):
                 break
 
             frame_number += 1
-            frame = cv2.resize(frame, (960, 540))
+            try:
+                frame = cv2.resize(frame, (960, 540))
+            except Exception:
+                pass
 
             results = _model(frame, verbose=False)
 
@@ -117,11 +177,10 @@ def detect_helmets(video_path):
             worker_count = 0
 
             for result in results:
-                boxes = result.boxes
+                boxes = getattr(result, "boxes", [])
                 for box in boxes:
-                    try:
-                        cls_id = int(box.cls[0])
-                    except Exception:
+                    cls_id, conf, xy = _parse_box(box)
+                    if cls_id is None:
                         continue
 
                     if person_id is not None and cls_id == person_id:

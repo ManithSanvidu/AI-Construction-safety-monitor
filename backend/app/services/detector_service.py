@@ -13,8 +13,52 @@ APP_DIR = os.path.dirname(BACKEND_DIR)
 BACKEND_ROOT = os.path.dirname(APP_DIR)
 PROJECT_ROOT = os.path.dirname(BACKEND_ROOT)
 
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+# Try to robustly locate the repository root that contains the `ai` package.
+# In deployment the package layout or current working directory may differ
+# (for example the backend may be mounted at /app). Instead of relying on a
+# single fixed relative path, walk upward from this file and add the first
+# ancestor directory that contains an `ai` package to sys.path.
+
+def _ensure_ai_on_path():
+    try:
+        import ai  # noqa: F401
+        return
+    except Exception:
+        pass
+
+    cur = os.path.abspath(BACKEND_DIR)
+    root = os.path.abspath(os.sep)
+    while True:
+        candidate = os.path.join(cur, "ai")
+        init_file = os.path.join(candidate, "__init__.py")
+        if os.path.isdir(candidate) and os.path.exists(init_file):
+            if cur not in sys.path:
+                sys.path.insert(0, cur)
+            return
+        if cur == root:
+            break
+        cur = os.path.dirname(cur)
+
+    # Fallback to previously computed PROJECT_ROOT if it looks valid
+    if os.path.isdir(os.path.join(PROJECT_ROOT, "ai")):
+        if PROJECT_ROOT not in sys.path:
+            sys.path.insert(0, PROJECT_ROOT)
+        return
+
+    # As a last resort try a few up-level candidates (handles packaging/mount differences)
+    alt_candidates = [
+        os.path.abspath(os.path.join(BACKEND_DIR, os.pardir)),
+        os.path.abspath(os.path.join(BACKEND_DIR, os.pardir, os.pardir)),
+        os.path.abspath(os.path.join(BACKEND_DIR, os.pardir, os.pardir, os.pardir)),
+    ]
+    for cand in alt_candidates:
+        if os.path.isdir(os.path.join(cand, "ai")) and cand not in sys.path:
+            sys.path.insert(0, cand)
+            return
+
+
+# Ensure ai package is discoverable before importing it
+_ensure_ai_on_path()
 
 from ai.detector import detect_people
 from ai.helmet_detector import detect_helmets
@@ -25,6 +69,7 @@ from ai.ruleengine import SafetyRuleEngine
 
 logger = logging.getLogger(__name__)
 _rule_engine = SafetyRuleEngine()
+
 
 def _build_alerts(report):
     alerts = []
@@ -134,4 +179,3 @@ def run_full_analysis(video_path: str, zone_vertices: list = None) -> dict:
 
     logger.info(f"[DetectorService] Analysis complete in {elapsed}s")
     return report
-

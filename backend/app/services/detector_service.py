@@ -13,11 +13,10 @@ APP_DIR = os.path.dirname(BACKEND_DIR)
 BACKEND_ROOT = os.path.dirname(APP_DIR)
 PROJECT_ROOT = os.path.dirname(BACKEND_ROOT)
 
-# Try to robustly locate the repository root that contains the `ai` package.
-# In deployment the package layout or current working directory may differ
-# (for example the backend may be mounted at /app). Instead of relying on a
-# single fixed relative path, walk upward from this file and add the first
-# ancestor directory that contains an `ai` package to sys.path.
+# Robustly locate the repository root that contains the `ai` package.
+# Container and platform layouts vary (working dir may be /app, code may be mounted
+# at repository root or only the backend folder). Try multiple candidate locations
+# and add the first valid one to sys.path so `import ai` works reliably.
 
 def _ensure_ai_on_path():
     try:
@@ -26,35 +25,58 @@ def _ensure_ai_on_path():
     except Exception:
         pass
 
-    cur = os.path.abspath(BACKEND_DIR)
-    root = os.path.abspath(os.sep)
-    while True:
-        candidate = os.path.join(cur, "ai")
-        init_file = os.path.join(candidate, "__init__.py")
-        if os.path.isdir(candidate) and os.path.exists(init_file):
-            if cur not in sys.path:
-                sys.path.insert(0, cur)
-            return
-        if cur == root:
-            break
-        cur = os.path.dirname(cur)
+    candidates = []
 
-    # Fallback to previously computed PROJECT_ROOT if it looks valid
-    if os.path.isdir(os.path.join(PROJECT_ROOT, "ai")):
-        if PROJECT_ROOT not in sys.path:
-            sys.path.insert(0, PROJECT_ROOT)
-        return
+    # Current working directory of the process
+    try:
+        cwd = os.getcwd()
+    except Exception:
+        cwd = None
 
-    # As a last resort try a few up-level candidates (handles packaging/mount differences)
-    alt_candidates = [
-        os.path.abspath(os.path.join(BACKEND_DIR, os.pardir)),
-        os.path.abspath(os.path.join(BACKEND_DIR, os.pardir, os.pardir)),
-        os.path.abspath(os.path.join(BACKEND_DIR, os.pardir, os.pardir, os.pardir)),
-    ]
-    for cand in alt_candidates:
-        if os.path.isdir(os.path.join(cand, "ai")) and cand not in sys.path:
-            sys.path.insert(0, cand)
+    # Add common candidates: cwd, cwd/backend, backend root, project root, well-known mounts
+    if cwd:
+        candidates.append(cwd)
+        candidates.append(os.path.join(cwd, "backend"))
+
+    # Relative to this file
+    candidates.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root (~../../..)
+    candidates.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # backend (~..)
+    candidates.append(os.path.dirname(os.path.abspath(__file__)))  # backend/app/services
+    candidates.append(PROJECT_ROOT)
+
+    # Common container mount points
+    candidates.extend(["/app", "/workspace", "/usr/src/app"]) 
+
+    # Try each candidate for the presence of an `ai` package
+    for cand in candidates:
+        if not cand:
+            continue
+        ai_dir = os.path.join(cand, "ai")
+        init_file = os.path.join(ai_dir, "__init__.py")
+        if os.path.isdir(ai_dir) and os.path.exists(init_file):
+            if cand not in sys.path:
+                sys.path.insert(0, cand)
+            try:
+                import ai  # final check
+                return
+            except Exception:
+                # If import still fails, continue searching
+                pass
+
+    # As a fallback, ensure PROJECT_ROOT and BACKEND_DIR are at least present on sys.path
+    if PROJECT_ROOT and os.path.isdir(os.path.join(PROJECT_ROOT, "ai")) and PROJECT_ROOT not in sys.path:
+        sys.path.insert(0, PROJECT_ROOT)
+        try:
+            import ai
             return
+        except Exception:
+            pass
+
+    if BACKEND_DIR not in sys.path:
+        sys.path.insert(0, BACKEND_DIR)
+
+    # If still not found, log the current sys.path to help debugging but don't raise here
+    logging.getLogger(__name__).warning("Could not locate 'ai' package; sys.path=%s", sys.path)
 
 
 # Ensure ai package is discoverable before importing it

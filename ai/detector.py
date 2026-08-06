@@ -64,7 +64,18 @@ def detect_people(video_path):
     Returns:
         dict: Detection statistics and person locations
     """
-    _init_model()
+    # Initialize model and handle missing model gracefully
+    try:
+        _init_model()
+    except Exception as e:
+        logger.error(f"Model initialization failed in detect_people: {e}")
+        return {"status": "error", "message": str(e)}
+
+    if _model is None:
+        return {"status": "error", "message": "YOLO model not initialized"}
+
+    if _class_mapping is None:
+        return {"status": "error", "message": "Model class mapping unavailable"}
 
     if not os.path.exists(video_path):
         return {"status": "error", "message": f"Video not found: {video_path}"}
@@ -88,7 +99,11 @@ def detect_people(video_path):
                 break
 
             frame_number += 1
-            frame = cv2.resize(frame, (960, 540))
+            try:
+                frame = cv2.resize(frame, (960, 540))
+            except Exception:
+                # If resizing fails, use the original frame
+                pass
 
             results = _model(frame, verbose=False)
 
@@ -96,7 +111,7 @@ def detect_people(video_path):
             confidences = []
 
             for result in results:
-                boxes = result.boxes
+                boxes = getattr(result, "boxes", [])
                 for box in boxes:
                     try:
                         # Normalize class id (handles tensors, numpy arrays, lists, etc.)

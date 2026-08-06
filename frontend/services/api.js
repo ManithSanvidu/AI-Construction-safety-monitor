@@ -76,8 +76,9 @@ export const getDashboardSummary = () => api.get("/dashboard/summary");
 // ---- Video Upload / Detection ----
 export const uploadVideo = (file, onUploadProgress) => {
   const formData = new FormData();
-  formData.append("video", file);
-  return api.post("/videos/upload", formData, {
+  // backend expects field name `file` and route `/video/upload`
+  formData.append("file", file);
+  return api.post("/video/upload", formData, {
     headers: { "Content-Type": "multipart/form-data" },
     onUploadProgress,
   });

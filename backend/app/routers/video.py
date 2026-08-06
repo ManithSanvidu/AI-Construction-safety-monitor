@@ -60,6 +60,22 @@ def _process_video_task(task_id: str, video_path: str, description: Optional[str
         TASKS[task_id]["status"] = "processing"
         TASKS[task_id]["progress"] = 5
 
+        # Upload to Cloudinary for persistence if CLOUDINARY_URL is set
+        final_video_url = f"/uploads/{os.path.basename(video_path)}"
+        if os.environ.get("CLOUDINARY_URL"):
+            try:
+                import cloudinary.uploader
+                logger.info(f"[video] Uploading to Cloudinary...")
+                upload_result = cloudinary.uploader.upload(
+                    video_path,
+                    resource_type="video",
+                    folder="construction_safety"
+                )
+                final_video_url = upload_result.get("secure_url")
+                logger.info(f"[video] Cloudinary upload successful: {final_video_url}")
+            except Exception as ce:
+                logger.error(f"[video] Cloudinary upload failed: {ce}")
+
         # Run the heavy detectors (people, helmets, vests, falls, unsafe zones)
         report = detector_service.run_full_analysis(video_path)
 
@@ -76,7 +92,8 @@ def _process_video_task(task_id: str, video_path: str, description: Optional[str
         with open(report_path, "w") as f:
             json.dump(report, f, indent=2)
 
-        TASKS[task_id]["processed_video_url"] = f"/uploads/{os.path.basename(video_path)}"
+        TASKS[task_id]["processed_video_url"] = final_video_url
+        TASKS[task_id]["original_video_url"] = final_video_url
         TASKS[task_id]["report_path"] = str(report_path)
         TASKS[task_id]["status"] = "done"
         TASKS[task_id]["progress"] = 100

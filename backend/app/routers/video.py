@@ -1,78 +1,55 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
-from typing import Optional
+from typing import Optional, Dict
+import uuid
+import os
 
 router = APIRouter(prefix="/api/video", tags=["video"])
 
-# Simple lazy model loader. Keeps state in module-level variable so
-# the rest of the app can call get_model() without failing import.
-_MODEL = None
+# Simple in-memory task store for upload/status polling.
+# For production use a persistent DB or task queue.
+TASKS: Dict[str, dict] = {}
 
+# SIMPLE LAZY MODEL LOADER. Keeps state in module-level variable so
+# the rest of the app can call get_model() without failing import.
+MODEL = None
 
 def get_model():
-    """Return a YOLO model object if available. This function will try to
-    import and load a model only once. If the ultralytics package (or other
-    model dependency) isn't installed, this will raise ImportError when used.
-
-    The function intentionally avoids heavy work during import so the app can
-    still start; callers (like the lifespan handler) can catch errors and
-    report degraded status.
+    """Return a YOLO model object if available. This function tries to
+    import and load a model only once. If the environment doesn't have
+    the actual weights or the ultralytics package, it will raise an
+    ImportError when called (main.py attempts to call this at startup).
     """
-    global _MODEL
-    if _MODEL is not None:
-        return _MODEL
+    global MODEL
+    if MODEL is not None:
+        return MODEL
 
-    # Try to import a real model if available. This is best-effort; if the
-    # environment doesn't have the dependency or the weights, we fall back to
-    # a lightweight stub that raises on actual inference attempts.
+    # Try to import a real model if present. If not available, leave MODEL as None.
     try:
-        # Attempt to import ultralytics.YOLO (common for YOLOv8 setups)
-        from ultralytics import YOLO  # type: ignore
-
-        # Example: try to load a local weights file path from env var, else
-        # return a model object that may try to download weights when used.
-        import os
-
-        weights = os.environ.get("YOLO_WEIGHTS_PATH", "yolov8n.pt")
-        try:
-            _MODEL = YOLO(weights)
-        except Exception:
-            # If loading weights fails, still keep the YOLO class so callers
-            # can decide what to do. Store a lambda that will raise a clear
-            # error when inference is attempted.
-            def _raise_on_infer(*args, **kwargs):
-                raise RuntimeError("YOLO model class is available but weights failed to load")
-
-            _MODEL = _raise_on_infer
-
-        return _MODEL
+        # Example: load ultralytics YOLO if installed and weights available
+        from ultralytics import YOLO
+        weights = os.environ.get("YOLO_WEIGHTS_PATH", "yolo11n.pt")
+        MODEL = YOLO(weights)
+        return MODEL
     except Exception:
-        # If ultralytics (or other expected deps) isn't present, provide a
-        # stub object that raises a clear error when used. This prevents
-        # import-time crashes while allowing health checks to detect degraded
-        # status.
-        class ModelStub:
-            def __call__(self, *args, **kwargs):
-                raise RuntimeError("YOLO model is not available in this environment")
-
-        _MODEL = ModelStub()
-        return _MODEL
+        # If loading a real model fails, keep MODEL as None. The rest of the app
+        # can still operate (uploads and static serving) and health endpoints
+        # will report model errors.
+        raise
 
 
 @router.get("/")
-async def ping():
+async def root():
     return {"message": "video router OK"}
 
 
 @router.post("/upload")
 async def upload_video(file: UploadFile = File(...), description: Optional[str] = None):
-    """Accept an uploaded video file and save it to the uploads directory.
-
-    This endpoint is minimal: it saves the uploaded file and returns the path.
-    The real project likely performs processing/inference after saving the file.
     """
-    import os
-
-    # Resolve uploads dir relative to package root
+    Accept an uploaded video file and save it to the backend/uploads directory.
+    Returns the fields the frontend expects so it can display the uploaded file
+    immediately and poll status.
+    """
+    # Determine uploads directory relative to backend/app/routers
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     uploads_dir = os.path.join(base_dir, "uploads")
     os.makedirs(uploads_dir, exist_ok=True)
@@ -82,10 +59,47 @@ async def upload_video(file: UploadFile = File(...), description: Optional[str] 
 
     dest_path = os.path.join(uploads_dir, file.filename)
     try:
+        content = await file.read()
         with open(dest_path, "wb") as f:
-            content = await file.read()
             f.write(content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {e}")
 
-    return {"filename": file.filename, "path": f"/uploads/{file.filename}", "description": description}
+    task_id = str(uuid.uuid4())
+    original_url = f"/uploads/{file.filename}"
+
+    # For now, mark processing as immediately done. If you have/implement
+    # background processing, update TASKS[task_id] from that worker.
+    TASKS[task_id] = {
+        "status": "done",
+        "progress": 100,
+        "original_video_url": original_url,
+        "processed_video_url": original_url,
+        "filename": file.filename,
+        "description": description or "",
+    }
+
+    return {
+        "status": "success",
+        "task_id": task_id,
+        "original_video_url": original_url,
+        "message": "file uploaded"
+    }
+
+
+@router.get("/status/{task_id}")
+async def video_status(task_id: str):
+    """
+    Return progress and (original/processed) video URLs for a given task_id.
+    Frontend polls this endpoint at /api/video/status/{task_id}.
+    """
+    task = TASKS.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="task not found")
+    return {
+        "status": task.get("status", "processing"),
+        "progress": task.get("progress", 0),
+        "original_video_url": task.get("original_video_url"),
+        "processed_video_url": task.get("processed_video_url"),
+        "message": ""
+    }

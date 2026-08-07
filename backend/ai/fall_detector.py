@@ -77,6 +77,9 @@ def detect_falls(video_path):
     frame_number = 0
     incidents = []
 
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    skip_frames = max(1, int(fps)) if fps > 0 else 30
+
     try:
         while True:
             ret, frame = cap.read()
@@ -84,6 +87,8 @@ def detect_falls(video_path):
                 break
 
             frame_number += 1
+            if frame_number % skip_frames != 0:
+                continue
             frame = cv2.resize(frame, (960, 540))
 
             results = _model(frame, verbose=False)

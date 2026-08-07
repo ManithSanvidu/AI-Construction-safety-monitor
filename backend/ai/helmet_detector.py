@@ -158,6 +158,9 @@ def detect_helmets(video_path):
     helmet_id = _class_map.get('helmet')
     no_helmet_id = _class_map.get('no_helmet')
 
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    skip_frames = max(1, int(fps)) if fps > 0 else 30
+
     try:
         while True:
             ret, frame = cap.read()
@@ -165,6 +168,8 @@ def detect_helmets(video_path):
                 break
 
             frame_number += 1
+            if frame_number % skip_frames != 0:
+                continue
             try:
                 frame = cv2.resize(frame, (960, 540))
             except Exception:

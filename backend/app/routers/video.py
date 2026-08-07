@@ -1,177 +1,414 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
-from typing import Optional, Dict
-import uuid
 import os
-import json
+import cv2
+import asyncio
+import time
+import uuid
+import datetime
+import subprocess
 import logging
-
-from app.services import detector_service
-from app.utils.helpers import save_upload_file, allowed_file
-from app.config import REPORT_FOLDER
-
-router = APIRouter(prefix="/api/video", tags=["video"])
-
-# Simple in-memory task store for upload/status polling.
-# For production use a persistent DB or task queue.
-TASKS: Dict[str, dict] = {}
+from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi.responses import FileResponse, StreamingResponse
+from ultralytics import YOLO
+import torch
+import threading
+from shapely.geometry import Point, Polygon
+from app.database import db
 
 logger = logging.getLogger(__name__)
 
-# SIMPLE LAZY MODEL LOADER. Keeps state in module-level variable so
-# the rest of the app can call get_model() without failing import.
-MODEL = None
+router = APIRouter(prefix="/api/video", tags=["video"])
 
+# Use a temporary directory for processing
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads", "videos")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# Global thread lock for YOLO ML inference
+model_lock = threading.Lock()
+
+# We will lazy-load the model to avoid blocking startup
+_model = None
+
+# In-memory task tracker for background processing
+_tasks = {}  # task_id -> { status: "processing"|"done"|"error", data: {...} }
 
 def get_model():
-    """Return a YOLO model object if available. This function tries to
-    import and load a model only once. If the environment doesn't have
-    the actual weights or the ultralytics package, it will raise an
-    ImportError when called (main.py attempts to call this at startup).
-    """
-    global MODEL
-    if MODEL is not None:
-        return MODEL
+    global _model
+    if _model is None:
+        ROUTER_DIR = os.path.dirname(os.path.abspath(__file__))
+        
+        possible_paths = [
+            os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(ROUTER_DIR))), "models", "ppe_model.pt")),
+            os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(ROUTER_DIR)), "models", "ppe_model.pt")),
+            "/app/models/ppe_model.pt",
+            os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(ROUTER_DIR))), "backend", "models", "ppe_model.pt"))
+        ]
+        
+        model_path = None
+        for p in possible_paths:
+            if os.path.exists(p):
+                model_path = p
+                break
+                
+        if not model_path:
+            raise FileNotFoundError(f"Model not found. Looked in: {possible_paths}")
+            
+        torch.set_num_threads(1)
+        _model = YOLO(model_path)
+    return _model
 
-    # Try to import a real model if present. If not available, leave MODEL as None.
+
+def _convert_to_h264(input_path: str, output_path: str) -> bool:
+    """Convert mp4v video to browser-playable H.264 using FFmpeg."""
     try:
-        # Example: load ultralytics YOLO if installed and weights available
-        from ultralytics import YOLO
-        weights = os.environ.get("YOLO_WEIGHTS_PATH", "yolo11n.pt")
-        MODEL = YOLO(weights)
-        return MODEL
-    except Exception:
-        # If loading a real model fails, keep MODEL as None. The rest of the app
-        # can still operate (uploads and static serving) and health endpoints
-        # will report model errors.
-        raise
-
-
-@router.get("/")
-async def root():
-    return {"message": "video router OK"}
-
-
-def _process_video_task(task_id: str, video_path: str, description: Optional[str] = None):
-    """Background task to run the full detector pipeline and update TASKS.
-    This keeps the upload endpoint fast while processing happens asynchronously.
-    """
-    try:
-        logger.info(f"[video] starting background processing for task {task_id}")
-        TASKS[task_id]["status"] = "processing"
-        TASKS[task_id]["progress"] = 5
-
-        # Upload to Cloudinary for persistence if CLOUDINARY_URL is set
-        final_video_url = f"/uploads/{os.path.basename(video_path)}"
-        if os.environ.get("CLOUDINARY_URL"):
-            try:
-                import cloudinary.uploader
-                logger.info(f"[video] Uploading to Cloudinary...")
-                upload_result = cloudinary.uploader.upload(
-                    video_path,
-                    resource_type="video",
-                    folder="construction_safety"
-                )
-                final_video_url = upload_result.get("secure_url")
-                logger.info(f"[video] Cloudinary upload successful: {final_video_url}")
-            except Exception as ce:
-                logger.error(f"[video] Cloudinary upload failed: {ce}")
-
-        # Run the heavy detectors (people, helmets, vests, falls, unsafe zones)
-        report = detector_service.run_full_analysis(video_path)
-
-        TASKS[task_id]["progress"] = 90
-
-        # Save report to reports folder for later retrieval
-        try:
-            REPORT_FOLDER.mkdir(parents=True, exist_ok=True)
-        except Exception:
-            # REPORT_FOLDER may be a string in some environments
-            os.makedirs(str(REPORT_FOLDER), exist_ok=True)
-
-        report_path = os.path.join(str(REPORT_FOLDER), f"detection_{task_id}.json")
-        with open(report_path, "w") as f:
-            json.dump(report, f, indent=2)
-
-        TASKS[task_id]["processed_video_url"] = final_video_url
-        TASKS[task_id]["original_video_url"] = final_video_url
-        TASKS[task_id]["report_path"] = str(report_path)
-        TASKS[task_id]["status"] = "done"
-        TASKS[task_id]["progress"] = 100
-
-        logger.info(f"[video] finished processing task {task_id}")
+        subprocess.run(
+            ['ffmpeg', '-y', '-i', input_path,
+             '-vcodec', 'libx264', '-preset', 'ultrafast', '-crf', '23',
+             '-pix_fmt', 'yuv420p',
+             '-movflags', '+faststart',
+             output_path],
+            check=True, capture_output=True, timeout=300
+        )
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            logger.info(f"FFmpeg H.264 conversion successful: {output_path}")
+            return True
+        return False
+    except FileNotFoundError:
+        logger.warning("FFmpeg not installed — processed video will be in mp4v format")
+        return False
     except Exception as e:
-        logger.exception("Background processing failed")
-        TASKS[task_id]["status"] = "error"
-        TASKS[task_id]["message"] = str(e)
-        TASKS[task_id]["progress"] = 0
+        logger.warning(f"FFmpeg conversion failed: {e}")
+        return False
+
+
+def _background_process(task_id: str, input_path: str, raw_output_path: str, final_output_path: str):
+    logger.info(f"[Task {task_id}] Background processing started for {input_path}")
+    try:
+        # Extract the very first frame immediately so the live MJPEG stream doesn't time out or show a black screen while the model loads.
+        cap_temp = cv2.VideoCapture(input_path)
+        if cap_temp.isOpened():
+            ret, frame = cap_temp.read()
+            if ret:
+                ret_jpg, buffer = cv2.imencode('.jpg', frame)
+                if ret_jpg:
+                    _tasks[task_id]["latest_frame"] = buffer.tobytes()
+        cap_temp.release()
+
+        model = get_model()
+        
+        cap = cv2.VideoCapture(input_path)
+        if not cap.isOpened():
+            _tasks[task_id] = {"status": "error", "message": "Cannot open video file"}
+            return
+
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        if fps == 0 or fps != fps:
+            fps = 30.0
+        
+        total_frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        width = 960
+        height = 540
+        
+        # Write with mp4v (works on all platforms), convert to H.264 afterward
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(raw_output_path, fourcc, fps, (width, height))
+        
+        if not out.isOpened():
+            cap.release()
+            _tasks[task_id] = {"status": "error", "message": "Failed to create video writer"}
+            return
+        
+        summary = {
+            "max_workers": 0,
+            "max_helmets": 0,
+            "max_vests": 0,
+            "total_incidents": 0,
+            "compliance_score": 100,
+            "incidents_list": []
+        }
+        
+        frame_count = 0
+        total_expected = 0
+        total_found = 0
+        last_annotated = None
+        
+        # Dynamic skip rate based on video length
+        if total_frame_count > 900:
+            skip_rate = 8
+        elif total_frame_count > 300:
+            skip_rate = 5
+        else:
+            skip_rate = 3
+
+        allowed_classes = None
+
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+                
+            frame_count += 1
+            
+            if frame_count % skip_rate != 1:
+                if last_annotated is not None:
+                    out.write(last_annotated)
+                continue
+                
+            frame = cv2.resize(frame, (width, height))
+            
+            if allowed_classes is None:
+                allowed_classes = [k for k in model.names.keys() if k != 4]
+            
+            zone_vertices = [(300, 300), (600, 300), (800, 500), (200, 500)]
+            polygon = Polygon(zone_vertices)
+            
+            # Draw the unsafe zone polygon on the frame before passing to YOLO, so it shows up in output
+            cv2.polylines(frame, [__import__('numpy').array(zone_vertices, __import__('numpy').int32)], True, (0, 0, 255), 2)
+            
+            with model_lock:
+                results = model(frame, conf=0.35, verbose=False, classes=allowed_classes)
+            
+            worker_count = 0
+            helmet_count = 0
+            vest_count = 0
+            
+            fall_count = 0
+            breach_count = 0
+            
+            for box in results[0].boxes:
+                cls_id = int(box.cls[0])
+                if cls_id == 5:
+                    worker_count += 1
+                    
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    w = x2 - x1
+                    h = y2 - y1
+                    
+                    # Fall detection heuristic
+                    if w > h * 1.5:
+                        fall_count += 1
+                        
+                    # Unsafe zone heuristic
+                    feet_x = int((x1 + x2) / 2)
+                    feet_y = int(y2)
+                    if polygon.contains(Point(feet_x, feet_y)):
+                        breach_count += 1
+                        
+                elif cls_id == 0:
+                    helmet_count += 1
+                elif cls_id == 7:
+                    vest_count += 1
+                    
+            summary["max_workers"] = max(summary["max_workers"], worker_count)
+            summary["max_helmets"] = max(summary["max_helmets"], helmet_count)
+            summary["max_vests"] = max(summary["max_vests"], vest_count)
+            
+            total_expected += worker_count * 2
+            total_found += helmet_count + vest_count
+
+            no_helmet = max(0, worker_count - helmet_count)
+            no_vest = max(0, worker_count - vest_count)
+            
+            if no_helmet > 0 or no_vest > 0 or fall_count > 0 or breach_count > 0:
+                if no_helmet > 0:
+                    summary["incidents_list"].append({"type": "No Helmet", "frame": frame_count, "count": no_helmet})
+                    summary["total_incidents"] += no_helmet
+                if no_vest > 0:
+                    summary["incidents_list"].append({"type": "No Safety Vest", "frame": frame_count, "count": no_vest})
+                    summary["total_incidents"] += no_vest
+                if fall_count > 0:
+                    summary["incidents_list"].append({"type": "Fall Detected", "frame": frame_count, "count": fall_count})
+                    summary["total_incidents"] += fall_count
+                if breach_count > 0:
+                    summary["incidents_list"].append({"type": "Unsafe Zone Breach", "frame": frame_count, "count": breach_count})
+                    summary["total_incidents"] += breach_count
+
+            annotated_frame = results[0].plot()
+            last_annotated = annotated_frame
+            out.write(annotated_frame)
+            
+            # Save latest frame for live MJPEG streaming
+            ret_jpg, buffer = cv2.imencode('.jpg', annotated_frame)
+            if ret_jpg:
+                _tasks[task_id]["latest_frame"] = buffer.tobytes()
+            
+            # Update progress (YOLO = 0-90%, FFmpeg = 90-100%)
+            if total_frame_count > 0:
+                _tasks[task_id]["progress"] = min(90, int((frame_count / total_frame_count) * 90))
+            
+            # Live compliance score and summary for real-time frontend updates
+            if total_expected > 0:
+                summary["compliance_score"] = round((total_found / total_expected) * 100, 1)
+            
+            _tasks[task_id]["detection_summary"] = dict(summary)
+            
+        cap.release()
+        out.release()
+        
+        if len(summary["incidents_list"]) > 50:
+            summary["incidents_list"] = summary["incidents_list"][:50]
+        
+        # Final update
+        _tasks[task_id]["detection_summary"] = summary
+        
+        # Convert mp4v to browser-playable H.264
+        _tasks[task_id]["progress"] = 92
+        serve_filename = os.path.basename(final_output_path)
+        
+        if _convert_to_h264(raw_output_path, final_output_path):
+            # H.264 conversion succeeded — serve the H.264 file, delete raw mp4v
+            try:
+                os.remove(raw_output_path)
+            except OSError:
+                pass
+        else:
+            # FFmpeg not available — rename mp4v file to the final name as fallback
+            try:
+                os.rename(raw_output_path, final_output_path)
+            except OSError:
+                serve_filename = os.path.basename(raw_output_path)
+        
+        _tasks[task_id]["progress"] = 98
+        
+        # Save to MongoDB
+        try:
+            doc = {
+                "filename": _tasks[task_id].get("original_filename", "unknown"),
+                "original_video_url": f"/uploads/videos/{_tasks[task_id].get('original_video_filename', '')}",
+                "processed_video_url": f"/uploads/videos/{serve_filename}",
+                "upload_date": datetime.datetime.utcnow(),
+                "detection_summary": summary,
+                "processing_time": round(time.time() - _tasks[task_id].get("start_time", time.time()), 2)
+            }
+            db.video_analysis.insert_one(doc)
+            doc["_id"] = str(doc["_id"])
+        except Exception as e:
+            logger.error(f"Failed to save to MongoDB: {e}")
+            doc = {}
+        
+        _tasks[task_id].update({
+            "status": "done",
+            "progress": 100,
+            "detection_summary": summary,
+            "processed_video_url": f"/uploads/videos/{serve_filename}",
+            "db_doc": doc
+        })
+        
+        logger.info(f"[Task {task_id}] Processing complete.")
+        
+    except Exception as e:
+        logger.error(f"[Task {task_id}] Background processing failed: {e}")
+        import traceback
+        traceback.print_exc()
+        _tasks[task_id] = {"status": "error", "message": str(e)}
 
 
 @router.post("/upload")
-async def upload_video(
-    file: UploadFile = File(...),
-    description: Optional[str] = None,
-    background_tasks: BackgroundTasks = None,
-):
-    """
-    Accept an uploaded video file and save it to the backend/uploads directory.
-    Returns the fields the frontend expects so it can display the uploaded file
-    immediately and poll status. Processing is scheduled in a background task.
-    """
-    if not file or not file.filename:
-        raise HTTPException(status_code=400, detail="No filename provided")
-
-    if not allowed_file(file.filename):
-        raise HTTPException(status_code=400, detail="Unsupported file extension")
-
+async def upload_video(file: UploadFile = File(...)):
+    """Save uploaded video and return immediately. Processing happens in background."""
+    if not file.filename.endswith(('.mp4', '.avi', '.mov', '.mkv')):
+        raise HTTPException(status_code=400, detail="Invalid video format")
+    
+    file_id = str(uuid.uuid4())
+    original_filename = f"{file_id}_original.mp4"
+    raw_processed_filename = f"{file_id}_raw.mp4"
+    final_processed_filename = f"{file_id}_processed.mp4"
+    
+    original_path = os.path.join(UPLOAD_DIR, original_filename)
+    raw_processed_path = os.path.join(UPLOAD_DIR, raw_processed_filename)
+    final_processed_path = os.path.join(UPLOAD_DIR, final_processed_filename)
+    
     try:
-        # Save with a unique generated filename to avoid collisions
-        dest_path = save_upload_file(file)
+        # Save file to disk
+        contents = await file.read()
+        with open(original_path, "wb") as buffer:
+            buffer.write(contents)
+        
+        logger.info(f"Saved upload ({len(contents)} bytes) as {original_filename}")
+        
+        # Initialize task tracker
+        _tasks[file_id] = {
+            "status": "processing",
+            "progress": 0,
+            "original_filename": file.filename,
+            "original_video_filename": original_filename,
+            "start_time": time.time()
+        }
+        
+        # Start background processing thread
+        thread = threading.Thread(
+            target=_background_process,
+            args=(file_id, original_path, raw_processed_path, final_processed_path),
+            daemon=True
+        )
+        thread.start()
+        
+        # Return IMMEDIATELY with the original video URL
+        return {
+            "status": "success",
+            "message": "Video uploaded. Processing started in background.",
+            "task_id": file_id,
+            "original_video_url": f"/uploads/videos/{original_filename}"
+        }
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save file: {e}")
-
-    task_id = str(uuid.uuid4())
-    original_url = f"/uploads/{dest_path.name}"
-
-    # Initialize task as queued and schedule background analysis
-    TASKS[task_id] = {
-        "status": "queued",
-        "progress": 0,
-        "original_video_url": original_url,
-        "processed_video_url": None,
-        "filename": dest_path.name,
-        "description": description or "",
-        "message": "",
-    }
-
-    # Schedule the heavy work after returning the response
-    if background_tasks is not None:
-        background_tasks.add_task(_process_video_task, task_id, str(dest_path), description)
-    else:
-        # Fallback: start in a separate thread if BackgroundTasks wasn't provided
-        import threading
-        threading.Thread(target=_process_video_task, args=(task_id, str(dest_path), description), daemon=True).start()
-
-    return {
-        "status": "success",
-        "task_id": task_id,
-        "original_video_url": original_url,
-        "message": "file uploaded and analysis scheduled"
-    }
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Upload Error: {str(e)}")
 
 
 @router.get("/status/{task_id}")
-async def video_status(task_id: str):
-    """
-    Return progress and (original/processed) video URLs for a given task_id.
-    Frontend polls this endpoint at /api/video/status/{task_id}.
-    """
-    task = TASKS.get(task_id)
+async def get_task_status(task_id: str):
+    """Poll this endpoint to check if background processing is done."""
+    task = _tasks.get(task_id)
     if not task:
-        raise HTTPException(status_code=404, detail="task not found")
+        raise HTTPException(status_code=404, detail="Task not found")
+    
     return {
-        "status": task.get("status", "processing"),
+        "status": task.get("status", "unknown"),
         "progress": task.get("progress", 0),
-        "original_video_url": task.get("original_video_url"),
+        "detection_summary": task.get("detection_summary"),
         "processed_video_url": task.get("processed_video_url"),
-        "message": task.get("message", "")
     }
+
+
+@router.get("/stream_live/{task_id}")
+async def stream_live_video(task_id: str):
+    """Streams MJPEG frames from the background YOLO processing live."""
+    task = _tasks.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    async def event_generator():
+        # Yield initial boundary so the browser immediately recognizes the multipart stream
+        yield b'--frame\r\n'
+        
+        last_yielded = None
+        while True:
+            current_task = _tasks.get(task_id)
+            if not current_task:
+                break
+                
+            frame = current_task.get("latest_frame")
+            if frame and frame != last_yielded:
+                last_yielded = frame
+                yield (b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n')
+            
+            if current_task.get("status") in ["done", "error"]:
+                break
+                
+            await asyncio.sleep(0.03)  # Approx 30 FPS polling
+            
+    return StreamingResponse(event_generator(), media_type="multipart/x-mixed-replace; boundary=frame")
+
+
+@router.get("/history")
+async def get_video_history():
+    """Returns past processed videos from MongoDB."""
+    def fetch_history():
+        videos = list(db.video_analysis.find().sort("upload_date", -1).limit(10))
+        for v in videos:
+            v["_id"] = str(v["_id"])
+        return videos
+        
+    history = await asyncio.to_thread(fetch_history)
+    return {"status": "success", "data": history}

@@ -85,7 +85,7 @@ async def chat_with_ai(request:ChatRequest):
         ]
         
         response = client.models.generate_content(
-            model='gemini-flash-latest',
+            model='gemini-1.5-flash',
             contents=contents
         )
         return {"response": response.text.strip()}

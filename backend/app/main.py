@@ -9,26 +9,11 @@ if BACKEND_DIR not in sys.path:
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+import httpx
 from app.config import API_TITLE, API_VERSION
 from app.routers import auth, video, reports, stocks, chat, incidents, compliance, organizations, payment, contact
 
-# Define lifespan event to load model on startup
-from contextlib import asynccontextmanager
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Eagerly load the YOLO model so it's ready when a video is uploaded
-    from app.routers.video import get_model
-    try:
-        print("Loading YOLO model on startup...")
-        get_model()
-        print("YOLO model loaded successfully.")
-    except Exception as e:
-        print(f"Failed to load YOLO model on startup: {e}")
-    yield
-    # Cleanup code here if needed
-
-app = FastAPI(title=API_TITLE, version=API_VERSION, lifespan=lifespan)
+app = FastAPI(title=API_TITLE, version=API_VERSION)
 
 # Configure CORS
 # Allow configuring allowed origins via FRONTEND_ORIGINS env var (comma-separated). If not set,
@@ -79,19 +64,18 @@ def read_root():
 
 @app.get("/health")
 def health_check():
-    """Performs a lightweight health check of model availability, ffmpeg, and MongoDB connectivity.
-    This avoids raising an exception on import and returns structured status for monitoring.
+    """Performs a lightweight health check of AI microservice connectivity, ffmpeg, and MongoDB connectivity.
     """
     status = {"status": "healthy", "checks": {}}
 
-    # Model readiness
+    # AI Microservice readiness
+    ai_service_url = os.environ.get("AI_SERVICE_URL", "http://localhost:8001")
     try:
-        from app.routers.video import get_model
-        # get_model may be expensive; it's safe because lifespan already attempted to load it.
-        get_model()
-        status["checks"]["model"] = {"ok": True}
+        res = httpx.get(f"{ai_service_url}/", timeout=2.0)
+        res.raise_for_status()
+        status["checks"]["ai_microservice"] = {"ok": True}
     except Exception as e:
-        status["checks"]["model"] = {"ok": False, "error": str(e)}
+        status["checks"]["ai_microservice"] = {"ok": False, "error": str(e)}
         status["status"] = "degraded"
 
     # ffmpeg availability

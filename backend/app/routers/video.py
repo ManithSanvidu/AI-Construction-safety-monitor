@@ -17,33 +17,7 @@ TASKS: Dict[str, dict] = {}
 
 logger = logging.getLogger(__name__)
 
-# SIMPLE LAZY MODEL LOADER. Keeps state in module-level variable so
-# the rest of the app can call get_model() without failing import.
-MODEL = None
-
-
-def get_model():
-    """Return a YOLO model object if available. This function tries to
-    import and load a model only once. If the environment doesn't have
-    the actual weights or the ultralytics package, it will raise an
-    ImportError when called (main.py attempts to call this at startup).
-    """
-    global MODEL
-    if MODEL is not None:
-        return MODEL
-
-    # Try to import a real model if present. If not available, leave MODEL as None.
-    try:
-        # Example: load ultralytics YOLO if installed and weights available
-        from ultralytics import YOLO
-        weights = os.environ.get("YOLO_WEIGHTS_PATH", "yolo11n.pt")
-        MODEL = YOLO(weights)
-        return MODEL
-    except Exception:
-        # If loading a real model fails, keep MODEL as None. The rest of the app
-        # can still operate (uploads and static serving) and health endpoints
-        # will report model errors.
-        raise
+# AI Model is now handled by an external microservice via detector_service
 
 
 @router.get("/")

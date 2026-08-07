@@ -83,10 +83,15 @@ def _init_model():
         return
 
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    BACKEND_DIR = os.path.dirname(BASE_DIR)
+    PROJECT_ROOT = os.path.dirname(BACKEND_DIR)
+    
     candidates = [
-        os.path.normpath(os.path.join(BASE_DIR, "..", "models", "helmet_model.pt")),
-        os.path.normpath(os.path.join(BASE_DIR, "..", "yolo11n.pt")),
-        os.path.normpath(os.path.join(BASE_DIR, "..", "models", "yolo11n.pt")),
+        os.path.normpath(os.path.join(BACKEND_DIR, "models", "helmet_model.pt")),
+        os.path.normpath(os.path.join(PROJECT_ROOT, "models", "helmet_model.pt")),
+        os.path.normpath(os.path.join(BACKEND_DIR, "yolo11n.pt")),
+        os.path.normpath(os.path.join(PROJECT_ROOT, "yolo11n.pt")),
+        os.path.normpath(os.path.join(BACKEND_DIR, "models", "yolo11n.pt")),
     ]
 
     model_path = _find_model_path(candidates)

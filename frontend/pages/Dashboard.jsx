@@ -343,8 +343,8 @@ function Dashboard() {
                                                 loop 
                                                 preload="auto"
                                                 className="w-full h-full object-contain bg-black"
+                                                src={videoData.url}
                                             >
-                                                <source src={videoData.url} type="video/mp4" />
                                                 Your browser does not support the video tag.
                                             </video>
                                         )}

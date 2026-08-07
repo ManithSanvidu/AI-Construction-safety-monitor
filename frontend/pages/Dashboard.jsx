@@ -74,7 +74,8 @@ function Dashboard() {
                     clearInterval(pollRef.current);
                     pollRef.current = null;
                     setProcessing(false);
-                    alert("AI analysis failed: " + (data.message || "Unknown error"));
+                    console.error("Backend AI processing error:", data);
+                    alert(`AI analysis failed: ${data.message || "Unknown error"}\n\n(See browser console for details)`);
                 }
                 
                 // Update stats live during polling

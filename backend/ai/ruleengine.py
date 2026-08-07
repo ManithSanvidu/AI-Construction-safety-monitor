@@ -36,7 +36,6 @@ class SafetyRuleEngine:
             
         if missing_ppe:
             msg=f"Worker missing mandatory PPE equipment: {', '.join(missing_ppe)}."
-            # Call the helper to build a proper alert dict (previous code appended the function object by mistake)
             alerts.append(self._create_alert_payload(worker_id, "MISSING_PPE", msg))
 
         if alerts:
@@ -70,3 +69,7 @@ class SafetyRuleEngine:
             "timestamp":time.time()
 
         }
+
+
+    
+        

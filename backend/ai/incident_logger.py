@@ -1,6 +1,5 @@
 """
 Incident logging module for safety violations.
-Uses JSONL (JSON Lines) format for efficient O(1) append operations.
 """
 import json
 import os
@@ -14,13 +13,9 @@ except ImportError:
 
 
 class IncidentLogger:
-    def __init__(self, log_file="incidents/incidents.jsonl"):
-        # Use .jsonl extension for JSON Lines format
-        if log_file.endswith('.json'):
-            log_file = log_file[:-5] + '.jsonl'
+    def __init__(self, log_file="incidents/incidents.json"):
         self.log_file = log_file
         self.incidents = []
-        self._last_logged = {}  # Track last logged incident to prevent duplicates
         ensure_directory("incidents")
         
     def log_incident(self, frame, violation_type, confidence, frame_number, worker_id=None):
@@ -34,11 +29,6 @@ class IncidentLogger:
             frame_number: Current frame number
             worker_id: Optional worker ID
         """
-        # Create a key to prevent duplicate incidents within the same frame
-        dedupe_key = (frame_number, violation_type, worker_id)
-        if dedupe_key in self._last_logged:
-            return self._last_logged[dedupe_key]
-        
         # Save screenshot
         image_path = save_screenshot(frame)
         
@@ -53,16 +43,28 @@ class IncidentLogger:
         }
         
         self.incidents.append(incident)
-        self._last_logged[dedupe_key] = incident
         self._save_to_file(incident)
         
         return incident
     
     def _save_to_file(self, incident):
-        """Save incident to JSONL file using efficient append mode (O(1) operation)."""
-        # JSONL format: one JSON object per line - allows O(1) append
-        with open(self.log_file, "a") as f:
-            f.write(json.dumps(incident) + "\n")
+        """Save incident to JSON file."""
+        # Load existing incidents
+        if os.path.exists(self.log_file):
+            with open(self.log_file, "r") as f:
+                try:
+                    data = json.load(f)
+                except json.JSONDecodeError:
+                    data = []
+        else:
+            data = []
+        
+        # Append new incident
+        data.append(incident)
+        
+        # Save back to file
+        with open(self.log_file, "w") as f:
+            json.dump(data, f, indent=2)
     
     def get_today_violations(self):
         """Get count of violations from today."""
@@ -70,50 +72,21 @@ class IncidentLogger:
         count = 0
         if os.path.exists(self.log_file):
             with open(self.log_file, "r") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        incident = json.loads(line)
-                        if incident.get("time", "").startswith(today):
+                try:
+                    data = json.load(f)
+                    for incident in data:
+                        if incident["time"].startswith(today):
                             count += 1
-                    except json.JSONDecodeError:
-                        continue
+                except json.JSONDecodeError:
+                    pass
         return count
     
     def get_all_incidents(self):
         """Get all logged incidents."""
-        incidents = []
         if os.path.exists(self.log_file):
             with open(self.log_file, "r") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        incidents.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        continue
-        return incidents
-    
-    def migrate_from_json(self):
-        """Migrate existing incidents.json to the new JSONL format."""
-        old_file = self.log_file[:-6] + ".json"  # Convert .jsonl back to .json
-        if not os.path.exists(old_file):
-            return
-        
-        try:
-            with open(old_file, "r") as f:
-                data = json.load(f)
-            
-            if isinstance(data, list):
-                # Write all incidents to the new JSONL file
-                with open(self.log_file, "w") as f:
-                    for incident in data:
-                        f.write(json.dumps(incident) + "\n")
-                
-                # Optionally backup and remove old file
-                os.rename(old_file, old_file + ".backup")
-        except (json.JSONDecodeError, IOError):
-            pass
+                try:
+                    return json.load(f)
+                except json.JSONDecodeError:
+                    return []
+        return []

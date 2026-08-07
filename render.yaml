@@ -1,0 +1,27 @@
+services:
+  # The AI Microservice
+  - type: web
+    name: safety-ai-microservice
+    env: python
+    region: ohio
+    buildCommand: "cd backend/ai && pip install -r requirements.txt"
+    startCommand: "cd backend/ai && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+
+  # The Main Backend API
+  - type: web
+    name: safety-backend
+    env: python
+    region: ohio
+    buildCommand: "cd backend && pip install -r requirements.txt"
+    startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: AI_SERVICE_URL
+        fromService:
+          type: web
+          name: safety-ai-microservice
+          envVarKey: RENDER_EXTERNAL_URL

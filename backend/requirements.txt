@@ -4,9 +4,7 @@ python-multipart
 pymongo
 pydantic
 python-dotenv
-opencv-python-headless
-ultralytics
-numpy
+httpx
 pandas
 Pillow
 reportlab
@@ -20,4 +18,3 @@ twilio
 google-genai
 cloudinary
 email-validator
-shapely

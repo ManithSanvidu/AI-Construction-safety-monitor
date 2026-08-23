@@ -20,22 +20,29 @@ def _find_model_path(candidates):
     return None
 
 
+from pathlib import Path
+
+def get_candidates():
+    BASE_DIR = Path(__file__).resolve().parent
+    BACKEND_DIR = BASE_DIR.parent
+    PROJECT_ROOT = BACKEND_DIR.parent
+    
+    return [
+        BACKEND_DIR / "models" / "yolo11n.pt",
+        BACKEND_DIR / "yolo11n.pt",
+        PROJECT_ROOT / "yolo11n.pt",
+        PROJECT_ROOT / "models" / "yolo11n.pt",
+        BACKEND_DIR / "Dataset" / "train" / "weights" / "best.pt",
+        Path("/app/yolo11n.pt"), # Docker path
+        Path("/app/models/yolo11n.pt")
+    ]
+
 def _init_model():
     global _model, _class_mapping
     if _model is not None:
         return
-
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    BACKEND_DIR = os.path.dirname(BASE_DIR)
-    PROJECT_ROOT = os.path.dirname(BACKEND_DIR)
     
-    candidates = [
-        os.path.normpath(os.path.join(BACKEND_DIR, "models", "yolo11n.pt")),
-        os.path.normpath(os.path.join(BACKEND_DIR, "yolo11n.pt")),
-        os.path.normpath(os.path.join(PROJECT_ROOT, "yolo11n.pt")),
-        os.path.normpath(os.path.join(PROJECT_ROOT, "models", "yolo11n.pt")),
-        os.path.normpath(os.path.join(BACKEND_DIR, "Dataset", "train", "weights", "best.pt")),
-    ]
+    candidates = [str(p) for p in get_candidates()]
 
     model_path = _find_model_path(candidates)
     if model_path is None:
@@ -97,7 +104,9 @@ def detect_people(video_path):
     frame_data = []
 
     fps = cap.get(cv2.CAP_PROP_FPS)
-    skip_frames = max(1, int(fps)) if fps > 0 else 30
+    skip_frames = 5  # Process every 5th frame for better CPU performance on Render
+    
+    logger.info(f"Starting video processing. FPS: {fps}, skip_frames: {skip_frames}")
 
     try:
         while True:
@@ -109,9 +118,9 @@ def detect_people(video_path):
             if frame_number % skip_frames != 0:
                 continue
             try:
-                frame = cv2.resize(frame, (960, 540))
-            except Exception:
-                # If resizing fails, use the original frame
+                frame = cv2.resize(frame, (640, 360))
+            except Exception as e:
+                logger.warning(f"Resizing failed for frame {frame_number}: {e}")
                 pass
 
             results = _model(frame, verbose=False)
